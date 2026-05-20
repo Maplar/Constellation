@@ -9,18 +9,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
-import { exportMarkdownNote, importMarkdownNote } from "../features/importExport/api";
-import { MarkdownPreview } from "../features/markdown/MarkdownPreview";
+import { exportMarkdownNote, importMarkdownNote } from "../modules/notes/api/export";
+import { MarkdownPreview } from "../modules/notes/components/MarkdownPreview";
 import {
   chooseNotesDirectory,
   getConfig,
   normalizeViewMode,
   saveConfig,
-} from "../features/settings/api";
-import type { AppConfig, ViewMode } from "../features/settings/types";
-import { normalizeTileColor } from "../features/settings/tileColor";
-import { SettingsPanel } from "./SettingsPanel";
-import { SlidingButtonGroup } from "./SlidingButtonGroup";
+} from "../modules/settings/api";
+import type { AppConfig, ViewMode } from "../modules/shared/types/settings";
+import { normalizeTileColor } from "../modules/settings/tileColor";
+import { SettingsPanel } from "../modules/settings/components/SettingsPanel";
+import { SlidingButtonGroup } from "../modules/shared/components/SlidingButtonGroup";
 import {
   createNote,
   createCategory,
@@ -35,8 +35,8 @@ import {
   renameCategory,
   saveExternalFile,
   updateNote,
-} from "../features/notes/api";
-import type { ExternalFile, Note, NoteMetadata } from "../features/notes/types";
+} from "../modules/notes/api";
+import type { ExternalFile, Note, NoteMetadata } from "../modules/shared/types/notes";
 import {
   countNoteChars,
   filterNotes,
@@ -45,20 +45,20 @@ import {
   getDisplayTitle,
   groupNotesByCategory,
   metadataFromNote,
-} from "../features/notes/noteUtils";
-import type { CategoryGroup } from "../features/notes/noteUtils";
+} from "../modules/shared/utils/noteUtils";
+import type { CategoryGroup } from "../modules/shared/utils/noteUtils";
 import {
   noteContextMenuItems,
   type NoteContextMenuAction,
-} from "../features/notes/noteContextMenu";
-import { openNotepadWindow, openTileWindow } from "../features/windows/api";
+} from "../modules/notes/noteContextMenu";
+import { openNotepadWindow, openTileWindow } from "../modules/windows/api";
 import {
   closeCurrentWindow,
   minimizeCurrentWindow,
   toggleMaximizeCurrentWindow,
   isCurrentWindowMaximized,
   startCurrentWindowDrag,
-} from "../features/windows/controls";
+} from "../modules/windows/controls";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 

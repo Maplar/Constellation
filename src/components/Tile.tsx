@@ -11,7 +11,7 @@ import type { CSSProperties, HTMLAttributes } from "react";
 import {
   DEFAULT_TILE_COLOR,
   normalizeTileColor,
-} from "../features/settings/tileColor";
+} from "../modules/settings/tileColor";
 
 export interface TileProps
   extends Omit<HTMLAttributes<HTMLDivElement>, "color" | "content" | "title"> {

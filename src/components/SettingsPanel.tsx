@@ -7,14 +7,14 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { AppConfig, ThemeOption, TileColorMode, ViewMode } from "../features/settings/types";
-import { supportedShortcuts } from "../features/settings/api";
+import type { AppConfig, ThemeOption, TileColorMode, ViewMode } from "../modules/shared/types/settings";
+import { supportedShortcuts } from "../modules/settings/api";
 import {
   DEFAULT_TILE_COLOR,
   normalizeTileColor,
-} from "../features/settings/tileColor";
-import { applyTheme, watchSystemTheme } from "../features/settings/theme";
-import { SlidingButtonGroup } from "./SlidingButtonGroup";
+} from "../modules/settings/tileColor";
+import { applyTheme, watchSystemTheme } from "../modules/settings/theme";
+import { SlidingButtonGroup } from "../modules/shared/components/SlidingButtonGroup";
 
 const tileColorModes: Array<{ value: TileColorMode; label: string }> = [
   { value: "system", label: "跟随主题" },

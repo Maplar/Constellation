@@ -14,14 +14,14 @@ import {
   getNote,
   listNotes,
   updateNote,
-} from "../features/notes/api";
-import type { Note, NoteMetadata } from "../features/notes/types";
+} from "../modules/notes/api";
+import type { Note, NoteMetadata } from "../modules/shared/types/notes";
 import {
   countNoteChars,
   formatShortDate,
   getDisplayTitle,
   metadataFromNote,
-} from "../features/notes/noteUtils";
+} from "../modules/shared/utils/noteUtils";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -32,26 +32,26 @@ import {
   showCurrentWindow,
   startCurrentWindowDrag,
   startCurrentWindowResize,
-} from "../features/windows/controls";
-import type { ResizeDirection } from "../features/windows/controls";
-import { getConfig } from "../features/settings/api";
+} from "../modules/windows/controls";
+import type { ResizeDirection } from "../modules/windows/controls";
+import { getConfig } from "../modules/settings/api";
 import {
   DEFAULT_TILE_COLOR,
   normalizeTileColor,
   resolveTileColor,
-} from "../features/settings/tileColor";
-import type { TileColorMode } from "../features/settings/types";
-import { shouldSaveBeforeSwitchingToTile } from "../features/windows/noteSurfaceSavePolicy";
+} from "../modules/settings/tileColor";
+import type { TileColorMode } from "../modules/shared/types/settings";
+import { shouldSaveBeforeSwitchingToTile } from "../modules/windows/noteSurfaceSavePolicy";
 import {
   NOTE_SURFACE_ACTION_EVENT,
   surfaceActionFromEvent,
-} from "../features/windows/surfaceActions";
+} from "../modules/windows/surfaceActions";
 import {
   NOTE_SURFACE_MODE_EVENT,
   getSurfaceTargetBounds,
   surfaceModeFromEvent,
-} from "../features/windows/surfaceMode";
-import type { NoteSurfaceMode } from "../features/windows/surfaceMode";
+} from "../modules/windows/surfaceMode";
+import type { NoteSurfaceMode } from "../modules/windows/surfaceMode";
 import { Tile } from "./Tile";
 
 type OpenMode = "new" | "open";

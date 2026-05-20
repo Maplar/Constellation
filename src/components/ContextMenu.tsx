@@ -7,8 +7,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { requestSurfaceAction } from "../features/windows/surfaceActions";
-import { tileContextMenuItems } from "../features/windows/tileContextMenu";
+import { requestSurfaceAction } from "../modules/windows/surfaceActions";
+import { tileContextMenuItems } from "../modules/windows/tileContextMenu";
 
 interface MenuState {
   x: number;

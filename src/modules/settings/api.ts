@@ -1,0 +1,38 @@
+/**
+ * @copyright 原始代码版权归 Achilng 所有 (Copyright (c) 2026 Achilng)
+ * 基于 MIT 许可证授权
+ *
+ * 修改部分版权：Copyright (c) 2026 Maplar
+ * 修改说明：二次开发修改
+ */
+
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import type { AppConfig, ViewMode } from "../shared/types/settings";
+
+export const supportedShortcuts = ["Ctrl+Space", "Alt+Space"] as const;
+
+export function getConfig(): Promise<AppConfig> {
+  return invoke("config_get");
+}
+
+export function saveConfig(config: AppConfig): Promise<AppConfig> {
+  return invoke("config_save", { config });
+}
+
+export async function chooseNotesDirectory(): Promise<string | null> {
+  const path = await open({
+    directory: true,
+    multiple: false,
+  });
+
+  return typeof path === "string" ? path : null;
+}
+
+export function normalizeViewMode(value: string): ViewMode {
+  if (value === "edit" || value === "split" || value === "preview") {
+    return value;
+  }
+
+  return "split";
+}

@@ -3,59 +3,10 @@
  * 基于 MIT 许可证授权
  *
  * 修改部分版权：Copyright (c) 2026 Maplar
- * 修改说明：二次开发修改
+ * 修改说明：已迁移到 modules/notes/api/export.ts
  */
 
-import { invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
-import type { Note } from "../notes/types";
-
-const markdownFilters = [{ name: "Markdown", extensions: ["md"] }];
-
-interface ExportableNote {
-  id: string;
-  title: string;
-}
-
-export async function importMarkdownNote(category = ""): Promise<Note | null> {
-  const path = await open({
-    multiple: false,
-    directory: false,
-    filters: markdownFilters,
-  });
-
-  if (typeof path !== "string") {
-    return null;
-  }
-
-  return invoke("notes_import_markdown", { path, category });
-}
-
-export async function exportMarkdownNote(note: ExportableNote): Promise<boolean> {
-  const path = await save({
-    defaultPath: markdownFileName(note.title),
-    filters: markdownFilters,
-  });
-
-  if (typeof path !== "string") {
-    return false;
-  }
-
-  await invoke("notes_export_markdown", { id: note.id, path });
-  return true;
-}
-
-function markdownFileName(title: string): string {
-  const safeTitle = safeFileStem(title) || "无标题笔记";
-  return `${safeTitle}.md`;
-}
-
-function safeFileStem(value: string): string {
-  return value
-    .trim()
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "_")
-    .replace(/\s+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 80);
-}
+export {
+  importMarkdownNote,
+  exportMarkdownNote,
+} from "../../modules/notes/api/export";

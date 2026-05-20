@@ -3,9 +3,7 @@
  * 基于 MIT 许可证授权
  *
  * 修改部分版权：Copyright (c) 2026 Maplar
- * 修改说明：二次开发修改
+ * 修改说明：已迁移到 modules/windows/noteSurfaceSavePolicy.ts
  */
 
-export function shouldSaveBeforeSwitchingToTile(autoSave: boolean): boolean {
-  return autoSave;
-}
+export { shouldSaveBeforeSwitchingToTile } from "../../modules/windows/noteSurfaceSavePolicy";
