@@ -103,7 +103,7 @@ declare module "d3-force-3d" {
     x(): (node: NodeDatum, i: number, nodes: NodeDatum[]) => number;
     x(x: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this;
     strength(): number;
-    strength(s: number): this;
+    strength(s: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this;
   }
 
   interface ForceY<NodeDatum extends SimulationNodeDatum>
@@ -111,7 +111,7 @@ declare module "d3-force-3d" {
     y(): (node: NodeDatum, i: number, nodes: NodeDatum[]) => number;
     y(y: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this;
     strength(): number;
-    strength(s: number): this;
+    strength(s: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this;
   }
 
   interface ForceZ<NodeDatum extends SimulationNodeDatum>
@@ -119,7 +119,7 @@ declare module "d3-force-3d" {
     z(): (node: NodeDatum, i: number, nodes: NodeDatum[]) => number;
     z(z: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this;
     strength(): number;
-    strength(s: number): this;
+    strength(s: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this;
   }
 
   export function forceSimulation<NodeDatum extends SimulationNodeDatum>(

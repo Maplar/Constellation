@@ -10,7 +10,7 @@ import { useNoteStore } from "../stores/useNoteStore";
 import type { NoteMetadata } from "../../shared/types/notes";
 
 export function GraphView() {
-  const { notesMetadata, isLoading, errorMessage, loadNotes, loadFullNotes, selectNote, linkGraph } =
+  const { notesMetadata, isLoading, errorMessage, loadNotes, loadFullNotes, selectNote, linkGraph, selectedNoteId } =
     useNoteStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [graphMode, setGraphMode] = useState<"2d" | "3d">("3d");
@@ -141,7 +141,13 @@ export function GraphView() {
 
         <div className="flex-1 min-w-0">
           {graphMode === "3d" ? (
-            <ForceGraph3D key={`3d-${graphKey.current}`} onNodeClick={handleNodeClick} />
+            <ForceGraph3D
+              key={`3d-${graphKey.current}`}
+              nodes={linkGraph.nodes}
+              edges={linkGraph.edges}
+              selectedNoteId={selectedNoteId}
+              onNodeClick={handleNodeClick}
+            />
           ) : (
             <ForceGraph2D key={`2d-${graphKey.current}`} onNodeClick={handleNodeClick} />
           )}
