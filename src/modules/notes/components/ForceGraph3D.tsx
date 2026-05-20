@@ -14,6 +14,7 @@ interface ForceGraph3DProps {
   edges: GraphEdge[];
   selectedNoteId?: string | null;
   onNodeClick?: (noteId: string) => void;
+  maxNodes?: number;
 }
 
 interface SimNode3D extends d3Force3d.SimulationNodeDatum {
@@ -32,7 +33,8 @@ interface SimLink3D extends d3Force3d.SimulationLinkDatum<SimNode3D> {
 }
 
 function resolveThemeColors(): { bg: string; lineColor: number; lightColor: number } {
-  if (typeof document === "undefined") return { bg: "#fcfaf6", lineColor: 0x888888, lightColor: 0xffffff };
+  if (typeof document === "undefined")
+    return { bg: "#fcfaf6", lineColor: 0x888888, lightColor: 0xffffff };
   const theme = document.documentElement.getAttribute("data-theme");
   const isDark = theme === "dark";
   return {
@@ -42,7 +44,32 @@ function resolveThemeColors(): { bg: string; lineColor: number; lightColor: numb
   };
 }
 
-export function ForceGraph3D({ nodes, edges, selectedNoteId, onNodeClick }: ForceGraph3DProps) {
+const MATERIAL_CACHE = new Map<string, THREE.MeshPhongMaterial>();
+
+function getCachedMaterial(color: string, opacity: number): THREE.MeshPhongMaterial {
+  const key = `${color}-${opacity}`;
+  let mat = MATERIAL_CACHE.get(key);
+  if (!mat) {
+    const c = new THREE.Color(color);
+    mat = new THREE.MeshPhongMaterial({
+      color: c,
+      emissive: c.clone().multiplyScalar(0.3),
+      shininess: 30,
+      transparent: true,
+      opacity,
+    });
+    MATERIAL_CACHE.set(key, mat);
+  }
+  return mat;
+}
+
+export function ForceGraph3D({
+  nodes,
+  edges,
+  selectedNoteId,
+  onNodeClick,
+  maxNodes,
+}: ForceGraph3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -73,12 +100,32 @@ export function ForceGraph3D({ nodes, edges, selectedNoteId, onNodeClick }: Forc
 
     if (nodes.length === 0 && edges.length === 0) return;
 
+    // --- Limit nodes ---
+    let visibleNodes = nodes;
+    let visibleIds: Set<string>;
+    if (maxNodes != null && nodes.length > maxNodes) {
+      visibleNodes = [...nodes].sort((a, b) => b.val - a.val).slice(0, maxNodes);
+    }
+    visibleIds = new Set(visibleNodes.map((n) => n.id));
+    const visibleEdges = edges.filter(
+      (e) => visibleIds.has(e.source) && visibleIds.has(e.target),
+    );
+
+    // --- Cleanup previous ---
     if (rendererRef.current) {
       cancelAnimationFrame(animFrameRef.current);
-      rendererRef.current.dispose();
-      if (container.contains(rendererRef.current.domElement)) {
-        container.removeChild(rendererRef.current.domElement);
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
+        controlsRef.current = null;
       }
+      const oldRenderer = rendererRef.current;
+      if (container.contains(oldRenderer.domElement)) {
+        container.removeChild(oldRenderer.domElement);
+      }
+      if (sceneRef.current) {
+        disposeScene(sceneRef.current);
+      }
+      oldRenderer.dispose();
     }
     if (simRef.current) {
       simRef.current.stop();
@@ -125,13 +172,13 @@ export function ForceGraph3D({ nodes, edges, selectedNoteId, onNodeClick }: Forc
     const relatedIds = new Set<string>();
     if (selectedNoteId) {
       relatedIds.add(selectedNoteId);
-      for (const edge of edges) {
+      for (const edge of visibleEdges) {
         if (edge.source === selectedNoteId) relatedIds.add(edge.target);
         if (edge.target === selectedNoteId) relatedIds.add(edge.source);
       }
     }
 
-    const simNodes: SimNode3D[] = nodes.map((n) => ({
+    const simNodes: SimNode3D[] = visibleNodes.map((n) => ({
       id: n.id,
       label: n.label,
       val: n.val,
@@ -142,21 +189,19 @@ export function ForceGraph3D({ nodes, edges, selectedNoteId, onNodeClick }: Forc
       z: (Math.random() - 0.5) * 300,
     }));
 
+    const simNodeMap = new Map<string, SimNode3D>();
+    for (const sn of simNodes) {
+      simNodeMap.set(sn.noteId, sn);
+    }
+
     const nodeGeometry = new THREE.SphereGeometry(1, 32, 32);
 
     for (const simNode of simNodes) {
-      const nodeColor = new THREE.Color(simNode.color);
       const baseRadius = 3;
       const scale = baseRadius + simNode.val * 0.5;
       const isRelated = !selectedNoteId || relatedIds.has(simNode.noteId);
 
-      const material = new THREE.MeshPhongMaterial({
-        color: nodeColor,
-        emissive: nodeColor.clone().multiplyScalar(0.3),
-        shininess: 30,
-        transparent: true,
-        opacity: isRelated ? 1 : 0.25,
-      });
+      const material = getCachedMaterial(simNode.color, isRelated ? 1 : 0.25);
 
       const mesh = new THREE.Mesh(nodeGeometry, material);
       mesh.scale.setScalar(scale);
@@ -173,7 +218,7 @@ export function ForceGraph3D({ nodes, edges, selectedNoteId, onNodeClick }: Forc
     scene.add(edgeGroup);
 
     const edgeMap = new Map<string, { source: string; target: string }>();
-    for (const edge of edges) {
+    for (const edge of visibleEdges) {
       const key = `${edge.source}-${edge.target}`;
       if (!edgeMap.has(key)) {
         edgeMap.set(key, { source: edge.source, target: edge.target });
@@ -194,7 +239,7 @@ export function ForceGraph3D({ nodes, edges, selectedNoteId, onNodeClick }: Forc
       edgeLinesRef.current.push(line);
     }
 
-    const simLinks: SimLink3D[] = edges.map((e) => ({
+    const simLinks: SimLink3D[] = visibleEdges.map((e) => ({
       source: e.source,
       target: e.target,
       label: e.label,
@@ -212,30 +257,15 @@ export function ForceGraph3D({ nodes, edges, selectedNoteId, onNodeClick }: Forc
           .strength((d: SimLink3D) => Math.min(0.4, d.value * 0.15)),
       )
       .force("charge", d3Force3d.forceManyBody<SimNode3D>().strength(-200))
-      .force(
-        "x",
-        d3Force3d.forceX<SimNode3D>(0).strength((d: SimNode3D) => d.val * 0.1),
-      )
-      .force(
-        "y",
-        d3Force3d.forceY<SimNode3D>(0).strength((d: SimNode3D) => d.val * 0.1),
-      )
-      .force(
-        "z",
-        d3Force3d.forceZ<SimNode3D>(0).strength((d: SimNode3D) => d.val * 0.1),
-      )
-      .force(
-        "center",
-        d3Force3d.forceCenter<SimNode3D>(0, 0, 0).strength(0.02),
-      )
-      .force(
-        "collide",
-        d3Force3d.forceCollide<SimNode3D>().radius((d: SimNode3D) => d.val * 2 + 6),
-      )
+      .force("x", d3Force3d.forceX<SimNode3D>(0).strength((d: SimNode3D) => d.val * 0.1))
+      .force("y", d3Force3d.forceY<SimNode3D>(0).strength((d: SimNode3D) => d.val * 0.1))
+      .force("z", d3Force3d.forceZ<SimNode3D>(0).strength((d: SimNode3D) => d.val * 0.1))
+      .force("center", d3Force3d.forceCenter<SimNode3D>(0, 0, 0).strength(0.02))
+      .force("collide", d3Force3d.forceCollide<SimNode3D>().radius((d: SimNode3D) => d.val * 2 + 6))
       .on("tick", () => {
         for (const mesh of nodeMeshesRef.current.values()) {
           const nodeId = mesh.userData.noteId as string;
-          const simNode = simNodes.find((n) => n.noteId === nodeId);
+          const simNode = simNodeMap.get(nodeId);
           if (simNode) {
             mesh.position.set(simNode.x ?? 0, simNode.y ?? 0, simNode.z ?? 0);
           }
@@ -309,16 +339,42 @@ export function ForceGraph3D({ nodes, edges, selectedNoteId, onNodeClick }: Forc
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       sim.stop();
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
+        controlsRef.current = null;
+      }
+      renderer.domElement.removeEventListener("click", handleClick);
+      window.removeEventListener("resize", handleResize);
+      themeObserver.disconnect();
+      if (sceneRef.current) {
+        disposeScene(sceneRef.current);
+      }
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
-      window.removeEventListener("resize", handleResize);
-      themeObserver.disconnect();
       nodeMeshesRef.current.clear();
       edgeLinesRef.current = [];
     };
-  }, [nodes, edges, selectedNoteId, handleNodeClick]);
+  }, [nodes, edges, selectedNoteId, maxNodes, handleNodeClick]);
 
   return <div ref={containerRef} className="w-full h-full min-h-0 overflow-hidden relative" />;
+}
+
+function disposeScene(scene: THREE.Scene): void {
+  scene.traverse((obj) => {
+    if (obj instanceof THREE.Mesh || obj instanceof THREE.Line || obj instanceof THREE.Points) {
+      obj.geometry?.dispose();
+      const mat = obj.material;
+      if (Array.isArray(mat)) {
+        mat.forEach((m) => m.dispose());
+      } else {
+        mat?.dispose();
+      }
+    }
+    if (obj instanceof THREE.Light) {
+      obj.dispose();
+    }
+  });
+  scene.clear();
 }

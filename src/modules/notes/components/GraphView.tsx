@@ -146,6 +146,7 @@ export function GraphView() {
               nodes={linkGraph.nodes}
               edges={linkGraph.edges}
               selectedNoteId={selectedNoteId}
+              maxNodes={150}
               onNodeClick={handleNodeClick}
             />
           ) : (
