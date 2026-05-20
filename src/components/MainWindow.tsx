@@ -1,3 +1,11 @@
+/**
+ * @copyright 原始代码版权归 Achilng 所有 (Copyright (c) 2026 Achilng)
+ * 基于 MIT 许可证授权
+ *
+ * 修改部分版权：Copyright (c) 2026 Maplar
+ * 修改说明：二次开发修改
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
