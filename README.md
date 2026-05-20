@@ -17,6 +17,8 @@
 - **导入导出** — 支持 `.md` 文件的导入和导出，可设为系统默认 Markdown 编辑器
 - **托盘菜单** — 关闭到托盘、开机自启、快速记录
 - **沉浸式标题栏** — 自绘窗口控制区域，与整体 UI 融合
+- **Wiki-Link 解析** — 支持 `[[笔记标题]]` 和 `[[笔记标题|别名]]` 语法，自动解析笔记间引用关系
+- **2D 力导向图谱** — 基于 d3-force 的笔记关系图谱可视化，节点大小反映被引次数，支持缩放/拖拽/点击跳转
 
 ## 技术架构
 
@@ -31,8 +33,9 @@
 | 语言 (前端) | TypeScript | ~5.8.3 |
 | 语言 (后端) | Rust | 1.95.0 |
 | 测试 | Vitest | ^4.0.0 |
+| 状态管理 | Zustand | ^5.0.13 |
 | Markdown | react-markdown + remark-gfm + remark-wiki-link | — |
-| 可视化 | cytoscape + d3（规划中） | — |
+| 可视化 | d3-force（2D 力导向图谱） | — |
 
 ### Tauri 插件
 
@@ -80,7 +83,12 @@ src/
 | `ExternalFile` | `src/features/notes/types.ts:22-26` | id（文件路径）, title, filePath |
 | `AppConfig` | `src/features/settings/types.ts:7-20` | notesDir, globalShortcut, closeToTray, autostart, defaultViewMode, noteAutoSave, noteSurfaceAutoSave, tileColor, tileColorMode, theme, fontSize, surfaceFontSize |
 | `CategoryGroup` | `src/features/notes/noteUtils.ts:38-42` | category, notes[], latestUpdatedAt |
-| `AppRoute` | `src/features/windows/windowRoutes.ts:3-6` | view ("main" / "notepad" / "tile"), noteId? |
+| `AppRoute` | `src/features/windows/windowRoutes.ts:3-6` | view ("main" / "notepad" / "tile" / "graph"), noteId? |
+| `WikiLink` | `src/modules/shared/types/notes.ts:38-43` | sourceNoteId, targetTitle, alias, rawText |
+| `GraphNode` | `src/modules/shared/types/notes.ts:45-52` | id, label, val, color, noteId, x?, y? |
+| `GraphEdge` | `src/modules/shared/types/notes.ts:54-59` | source, target, label, value |
+| `LinkGraph` | `src/modules/shared/types/notes.ts:61-64` | nodes: GraphNode[], edges: GraphEdge[] |
+| `NoteStore` | `src/modules/notes/stores/useNoteStore.ts` | Zustand store（notes, wikiLinks, linkGraph, loadNotes, rebuildGraph） |
 
 **存储方式**：笔记以 `<uuid>_<safe_title>.md` 文件存储在按分类划分子目录的文件夹中，元数据聚合在 `metadata.json`。配置保存在 `config.json`。默认数据目录为 `%USERPROFILE%\Documents\星座`。
 
@@ -100,7 +108,7 @@ src/
 | **AI 客户端** | 0% | `src/core/ai-client.ts` 不存在，无 LLM 依赖 |
 | **AI 面板** | 0% | `src/components/AiPanel/` 不存在 |
 | **Markdown→PDF** | 0% | `src/core/markdown-to-pdf.ts` 不存在，无 PDF 库 |
-| **图谱关系** | 0% | cytoscape/d3 已安装但未使用 |
+| **图谱关系** | 70% | Wiki-Link 解析 + d3-force 2D 图谱已实现，待添加 3D 升级和路径分析 |
 | **移动端** | 0% | 仅 lib.rs 有 `#[cfg_attr(mobile)]` 声明，无实际适配 |
 | **平台抽象层** | 0% | `src/platforms/desktop.ts` 和 `mobile.ts` 不存在 |
 
@@ -113,45 +121,37 @@ floral-notepaper/
 │   ├── App.tsx                       # 根组件（路由分发）
 │   ├── App.css
 │   ├── vite-env.d.ts
-│   ├── components/                   # UI 组件
-│   │   ├── ContextMenu.tsx
-│   │   ├── MainWindow.tsx            # 主窗口（笔记列表+编辑器+工具栏）
-│   │   ├── NotePad.tsx               # 快捷便签窗口（新建/打开/磁贴）
-│   │   ├── SettingsPanel.tsx         # 设置面板
-│   │   ├── SlidingButtonGroup.tsx    # 滑动按钮组
-│   │   ├── Tile.tsx                  # 磁贴展示组件
-│   │   └── TileShowcase.tsx          # 磁贴窗口外壳
-│   └── features/                     # 功能模块
-│       ├── importExport/api.ts       # Markdown 导入导出
-│       ├── markdown/MarkdownPreview.tsx
-│       ├── notes/
-│       │   ├── api.ts                # 笔记 CRUD 前端调用
-│       │   ├── types.ts              # Note / NoteMetadata 类型
-│       │   ├── noteUtils.ts          # 工具函数（分组/过滤/格式化）
-│       │   └── noteContextMenu.ts    # 右键菜单项
-│       ├── settings/
-│       │   ├── api.ts                # 配置读写 API
-│       │   ├── types.ts              # AppConfig / ViewMode / ThemeOption
-│       │   ├── theme.ts              # 主题切换逻辑
-│       │   └── tileColor.ts          # 磁贴颜色解析
-│       └── windows/
-│           ├── api.ts                # 多窗口打开/回收 API
-│           ├── controls.ts           # 窗口控制（拖拽/调整大小/最大化）
-│           ├── surfaceActions.ts     # 小窗操作事件（保存/复制/关闭）
-│           ├── surfaceMode.ts        # 小窗模式切换（便签↔磁贴）
-│           ├── windowRoutes.ts       # 视图路由解析
-│           ├── tileContextMenu.ts    # 磁贴右键菜单
-│           └── noteSurfaceSavePolicy.ts
+│   ├── components/                   # UI 组件（重构过渡期保留）
+│   ├── features/                     # 功能模块（重构过渡期保留）
+│   └── modules/                      # ★ 新模块化目录
+│       ├── shared/                   # 跨模块共享
+│       │   ├── types/                # 全局类型（notes.ts, settings.ts）
+│       │   ├── hooks/                # 通用 hooks
+│       │   ├── utils/                # 通用工具（noteUtils.ts）
+│       │   └── components/           # 通用 UI（ContextMenu, SlidingButtonGroup）
+│       ├── notes/                    # 笔记管理模块
+│       │   ├── components/           # MainWindow, MarkdownPreview, ForceGraph2D, GraphView
+│       │   ├── stores/               # Zustand store（useNoteStore.ts）
+│       │   ├── hooks/                # useGraphData, useNotes
+│       │   ├── api/                  # 笔记 CRUD + 导入导出 API
+│       │   ├── linkParser.ts         # Wiki-Link 解析器
+│       │   └── noteContextMenu.ts    # 右键菜单
+│       ├── windows/                  # 窗口管理模块
+│       │   ├── components/           # NotePad, Tile, TileShowcase
+│       │   ├── stores/               # 窗口池状态
+│       │   ├── api.ts                # 多窗口 API
+│       │   ├── controls.ts           # 窗口控制
+│       │   ├── surfaceMode.ts        # 便签↔磁贴切换
+│       │   ├── surfaceActions.ts     # 右键操作
+│       │   ├── tileContextMenu.ts    # 磁贴菜单
+│       │   ├── noteSurfaceSavePolicy.ts
+│       │   └── windowRoutes.ts       # 视图路由
+│       ├── settings/                 # 设置模块
+│       │   ├── components/           # SettingsPanel
+│       │   ├── api.ts, theme.ts, tileColor.ts
+│       │   └── types.ts
+│       └── visualization/            # 可视化模块（预留 3D 升级）
 ├── src-tauri/                        # Rust 后端
-│   ├── tauri.conf.json               # Tauri 配置（窗口/捆绑/文件关联）
-│   ├── capabilities/default.json     # 权限定义
-│   └── src/
-│       ├── main.rs                   # 入口
-│       ├── lib.rs                    # 命令注册 + 事件 + 插件
-│       ├── desktop.rs                # 桌面平台逻辑（窗口池/托盘/快捷键/自启）
-│       └── services/
-│           ├── mod.rs
-│           └── notes.rs              # NoteStore（笔记/分类/配置持久化引擎）
 ├── package.json
 ├── tsconfig.json
 ├── tsconfig.node.json

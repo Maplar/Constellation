@@ -6,7 +6,7 @@
  * 修改说明：二次开发修改
  */
 
-export type AppView = "main" | "notepad" | "tile";
+export type AppView = "main" | "notepad" | "tile" | "graph";
 
 export interface AppRoute {
   view: AppView;
@@ -24,6 +24,7 @@ export function routeFromSearch(search: string): AppRoute {
 
   if (view === "notepad") return noteId ? { view, noteId } : { view };
   if (view === "tile") return noteId ? { view, noteId } : { view };
+  if (view === "graph") return { view };
   return { view: "main" };
 }
 

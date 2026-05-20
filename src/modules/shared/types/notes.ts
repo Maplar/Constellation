@@ -32,3 +32,37 @@ export interface ExternalFile {
   title: string;
   filePath: string;
 }
+
+/**
+ * @copyright Copyright (c) 2026 Maplar
+ * 基于 floral-notepaper 二次开发新增：Wiki-Link 图谱类型
+ */
+
+export interface WikiLink {
+  sourceNoteId: string;
+  targetTitle: string;
+  alias: string | null;
+  rawText: string;
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  val: number;
+  color: string;
+  noteId: string;
+  x?: number;
+  y?: number;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  label: string | null;
+  value: number;
+}
+
+export interface LinkGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}

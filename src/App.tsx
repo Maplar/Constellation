@@ -12,6 +12,7 @@ import { ContextMenuProvider } from "./modules/shared/components/ContextMenu";
 import { MainWindow } from "./modules/notes/components/MainWindow";
 import { NotePad } from "./modules/windows/components/NotePad";
 import { TileShowcase } from "./modules/windows/components/TileShowcase";
+import { GraphView } from "./modules/notes/components/GraphView";
 import { getConfig } from "./modules/settings/api";
 import { applyTheme, watchSystemTheme } from "./modules/settings/theme";
 import type { AppConfig, ThemeOption } from "./modules/shared/types/settings";
@@ -52,8 +53,10 @@ function App() {
           <MainWindow />
         ) : activeView === "notepad" ? (
           <NotePad initialNoteId={route.noteId} />
-        ) : (
+        ) : activeView === "tile" ? (
           <TileShowcase noteId={route.noteId} />
+        ) : (
+          <GraphView />
         )}
       </div>
     </ContextMenuProvider>

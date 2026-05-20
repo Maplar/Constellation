@@ -3,130 +3,156 @@
  * 基于 MIT 许可证授权
  *
  * 修改部分版权：Copyright (c) 2026 Maplar
- * 修改说明：二次开发修改
+ * 修改说明：集成 Wiki-Link 解析与渲染
  */
 
+import { useMemo } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkWikiLink from "remark-wiki-link";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Components } from "react-markdown";
 
 interface MarkdownPreviewProps {
   content: string;
   fontSize?: number;
+  onWikiLinkClick?: (title: string) => void;
 }
 
-const remarkPlugins = [remarkGfm];
+const remarkPlugins = [remarkGfm, remarkWikiLink];
 
-const components: Components = {
-  h1: ({ children }) => (
-    <h1 className="text-[22px] font-display font-bold text-ink mt-6 mb-4 tracking-wide">
-      {children}
-    </h1>
-  ),
-  h2: ({ children }) => (
-    <h2 className="text-[17px] font-display font-bold text-ink mt-7 mb-3 tracking-wide">
-      {children}
-    </h2>
-  ),
-  h3: ({ children }) => (
-    <h3 className="text-[15px] font-display font-bold text-ink mt-5 mb-2 tracking-wide">
-      {children}
-    </h3>
-  ),
-  h4: ({ children }) => (
-    <h4 className="text-[14px] font-display font-semibold text-ink mt-4 mb-2 tracking-wide">
-      {children}
-    </h4>
-  ),
-  p: ({ children }) => (
-    <p className="text-ink-soft leading-[1.9]">{children}</p>
-  ),
-  strong: ({ children }) => (
-    <strong className="font-semibold text-ink">{children}</strong>
-  ),
-  em: ({ children }) => (
-    <em className="italic text-bamboo-light">{children}</em>
-  ),
-  blockquote: ({ children }) => (
-    <blockquote className="border-l-2 border-bamboo/40 pl-4 my-3 text-ink-soft/80 italic leading-[1.9]">
-      {children}
-    </blockquote>
-  ),
-  ul: ({ children }) => (
-    <ul className="ml-4 text-ink-soft leading-[1.9] list-disc list-outside marker:text-bamboo/40">
-      {children}
-    </ul>
-  ),
-  ol: ({ children }) => (
-    <ol className="ml-4 text-ink-soft leading-[1.9] list-decimal list-outside marker:text-bamboo/50 marker:font-mono marker:text-[12px]">
-      {children}
-    </ol>
-  ),
-  li: ({ children }) => (
-    <li className="text-ink-soft leading-[1.9]">{children}</li>
-  ),
-  hr: () => (
-    <hr className="my-6 border-none h-px bg-gradient-to-r from-transparent via-paper-deep to-transparent" />
-  ),
-  code: ({ className, children }) => {
-    const isBlock = className?.startsWith("language-") || String(children).includes("\n");
-    if (isBlock) {
+function makeComponents(onWikiLinkClick?: (title: string) => void): Components {
+  return {
+    h1: ({ children }) => (
+      <h1 className="text-[22px] font-display font-bold text-ink mt-6 mb-4 tracking-wide">
+        {children}
+      </h1>
+    ),
+    h2: ({ children }) => (
+      <h2 className="text-[17px] font-display font-bold text-ink mt-7 mb-3 tracking-wide">
+        {children}
+      </h2>
+    ),
+    h3: ({ children }) => (
+      <h3 className="text-[15px] font-display font-bold text-ink mt-5 mb-2 tracking-wide">
+        {children}
+      </h3>
+    ),
+    h4: ({ children }) => (
+      <h4 className="text-[14px] font-display font-semibold text-ink mt-4 mb-2 tracking-wide">
+        {children}
+      </h4>
+    ),
+    p: ({ children }) => (
+      <p className="text-ink-soft leading-[1.9]">{children}</p>
+    ),
+    strong: ({ children }) => (
+      <strong className="font-semibold text-ink">{children}</strong>
+    ),
+    em: ({ children }) => (
+      <em className="italic text-bamboo-light">{children}</em>
+    ),
+    blockquote: ({ children }) => (
+      <blockquote className="border-l-2 border-bamboo/40 pl-4 my-3 text-ink-soft/80 italic leading-[1.9]">
+        {children}
+      </blockquote>
+    ),
+    ul: ({ children }) => (
+      <ul className="ml-4 text-ink-soft leading-[1.9] list-disc list-outside marker:text-bamboo/40">
+        {children}
+      </ul>
+    ),
+    ol: ({ children }) => (
+      <ol className="ml-4 text-ink-soft leading-[1.9] list-decimal list-outside marker:text-bamboo/50 marker:font-mono marker:text-[12px]">
+        {children}
+      </ol>
+    ),
+    li: ({ children }) => (
+      <li className="text-ink-soft leading-[1.9]">{children}</li>
+    ),
+    hr: () => (
+      <hr className="my-6 border-none h-px bg-gradient-to-r from-transparent via-paper-deep to-transparent" />
+    ),
+    code: ({ className, children }) => {
+      const isBlock = className?.startsWith("language-") || String(children).includes("\n");
+      if (isBlock) {
+        return (
+          <code className="text-[12px] font-mono text-ink-soft leading-[1.8] whitespace-pre">
+            {children}
+          </code>
+        );
+      }
       return (
-        <code className="text-[12px] font-mono text-ink-soft leading-[1.8] whitespace-pre">
+        <code className="px-1.5 py-0.5 text-[12px] font-mono bg-paper-warm rounded text-bamboo">
           {children}
         </code>
       );
-    }
-    return (
-      <code className="px-1.5 py-0.5 text-[12px] font-mono bg-paper-warm rounded text-bamboo">
+    },
+    pre: ({ children }) => (
+      <pre className="my-3 px-4 py-3 rounded bg-paper-warm/80 overflow-x-auto">
         {children}
-      </code>
-    );
-  },
-  pre: ({ children }) => (
-    <pre className="my-3 px-4 py-3 rounded bg-paper-warm/80 overflow-x-auto">
-      {children}
-    </pre>
-  ),
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      onClick={(e) => {
-        e.preventDefault();
-        if (href) openUrl(href);
-      }}
-      className="text-bamboo hover:text-bamboo-light underline underline-offset-2 cursor-pointer"
-    >
-      {children}
-    </a>
-  ),
-  table: ({ children }) => (
-    <div className="my-3 overflow-x-auto">
-      <table className="w-full text-[13px] border-collapse">{children}</table>
-    </div>
-  ),
-  th: ({ children }) => (
-    <th className="text-left px-3 py-1.5 border-b border-paper-deep/30 font-semibold text-ink text-[12px]">
-      {children}
-    </th>
-  ),
-  td: ({ children }) => (
-    <td className="px-3 py-1.5 border-b border-paper-deep/15 text-ink-soft">
-      {children}
-    </td>
-  ),
-  input: ({ checked, ...props }) => (
-    <input
-      {...props}
-      checked={checked}
-      disabled
-      className="mr-1.5 accent-bamboo"
-    />
-  ),
-};
+      </pre>
+    ),
+    a: ({ href, className: linkClassName, children }) => {
+      const isInternal = typeof linkClassName === "string" && linkClassName.includes("internal");
+      if (isInternal && onWikiLinkClick) {
+        const title = typeof children === "string" ? children : String(children ?? "");
+        return (
+          <a
+            href={href}
+            onClick={(e) => {
+              e.preventDefault();
+              onWikiLinkClick(title);
+            }}
+            className="text-bamboo hover:text-bamboo-light underline underline-offset-2 cursor-pointer font-medium"
+            data-wiki-link="true"
+          >
+            {children}
+          </a>
+        );
+      }
+      return (
+        <a
+          href={href}
+          onClick={(e) => {
+            e.preventDefault();
+            if (href) openUrl(href);
+          }}
+          className="text-bamboo hover:text-bamboo-light underline underline-offset-2 cursor-pointer"
+        >
+          {children}
+        </a>
+      );
+    },
+    table: ({ children }) => (
+      <div className="my-3 overflow-x-auto">
+        <table className="w-full text-[13px] border-collapse">{children}</table>
+      </div>
+    ),
+    th: ({ children }) => (
+      <th className="text-left px-3 py-1.5 border-b border-paper-deep/30 font-semibold text-ink text-[12px]">
+        {children}
+      </th>
+    ),
+    td: ({ children }) => (
+      <td className="px-3 py-1.5 border-b border-paper-deep/15 text-ink-soft">
+        {children}
+      </td>
+    ),
+    input: ({ checked, ...props }) => (
+      <input
+        {...props}
+        checked={checked}
+        disabled
+        className="mr-1.5 accent-bamboo"
+      />
+    ),
+  };
+}
 
-export function MarkdownPreview({ content, fontSize = 14 }: MarkdownPreviewProps) {
+export function MarkdownPreview({ content, fontSize = 14, onWikiLinkClick }: MarkdownPreviewProps) {
+  const components = useMemo(() => makeComponents(onWikiLinkClick), [onWikiLinkClick]);
+
   return (
     <div className="max-w-[560px] font-body" style={{ fontSize: `${fontSize}px` }}>
       {content.trim() ? (
