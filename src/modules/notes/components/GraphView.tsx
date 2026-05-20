@@ -3,8 +3,9 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ForceGraph2D } from "./ForceGraph2D";
+import { ForceGraph3D } from "./ForceGraph3D";
 import { useNoteStore } from "../stores/useNoteStore";
 import type { NoteMetadata } from "../../shared/types/notes";
 
@@ -12,6 +13,8 @@ export function GraphView() {
   const { notesMetadata, isLoading, errorMessage, loadNotes, loadFullNotes, selectNote, linkGraph } =
     useNoteStore();
   const [searchQuery, setSearchQuery] = useState("");
+  const [graphMode, setGraphMode] = useState<"2d" | "3d">("3d");
+  const graphKey = useRef(0);
 
   useEffect(() => {
     void (async () => {
@@ -49,6 +52,28 @@ export function GraphView() {
           </span>
         </div>
         <div className="flex items-center gap-2 pr-3">
+          <div className="flex items-center gap-0.5 mr-3 bg-paper-warm/60 rounded-md p-[2px] border border-paper-deep/25">
+            <button
+              onClick={() => { graphKey.current++; setGraphMode("2d"); }}
+              className={`px-2.5 py-0.5 text-[10px] rounded transition-colors cursor-pointer ${
+                graphMode === "2d"
+                  ? "text-bamboo bg-cloud shadow-[0_1px_2px_rgba(0,0,0,0.04)] font-medium"
+                  : "text-ink-ghost hover:text-ink-faint"
+              }`}
+            >
+              2D
+            </button>
+            <button
+              onClick={() => { graphKey.current++; setGraphMode("3d"); }}
+              className={`px-2.5 py-0.5 text-[10px] rounded transition-colors cursor-pointer ${
+                graphMode === "3d"
+                  ? "text-bamboo bg-cloud shadow-[0_1px_2px_rgba(0,0,0,0.04)] font-medium"
+                  : "text-ink-ghost hover:text-ink-faint"
+              }`}
+            >
+              3D
+            </button>
+          </div>
           <span className="text-[10px] text-ink-ghost font-mono tabular-nums">
             {linkGraph.nodes.length} 节点 · {linkGraph.edges.length} 连线
           </span>
@@ -115,7 +140,11 @@ export function GraphView() {
         </div>
 
         <div className="flex-1 min-w-0">
-          <ForceGraph2D onNodeClick={handleNodeClick} />
+          {graphMode === "3d" ? (
+            <ForceGraph3D key={`3d-${graphKey.current}`} onNodeClick={handleNodeClick} />
+          ) : (
+            <ForceGraph2D key={`2d-${graphKey.current}`} onNodeClick={handleNodeClick} />
+          )}
         </div>
       </div>
     </div>

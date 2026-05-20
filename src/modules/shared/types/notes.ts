@@ -53,6 +53,7 @@ export interface GraphNode {
   noteId: string;
   x?: number;
   y?: number;
+  z?: number;
 }
 
 export interface GraphEdge {

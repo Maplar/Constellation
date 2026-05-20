@@ -3,7 +3,7 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { describe, expect, it, vi, beforeAll } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),

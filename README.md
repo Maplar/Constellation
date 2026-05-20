@@ -19,6 +19,7 @@
 - **沉浸式标题栏** — 自绘窗口控制区域，与整体 UI 融合
 - **Wiki-Link 解析** — 支持 `[[笔记标题]]` 和 `[[笔记标题|别名]]` 语法，自动解析笔记间引用关系
 - **2D 力导向图谱** — 基于 d3-force 的笔记关系图谱可视化，节点大小反映被引次数，支持缩放/拖拽/点击跳转
+- **3D 星团图谱** — 基于 d3-force-3d + Three.js 的三维力导向图谱，高被引节点向中心聚集形成星团效果，支持旋转/缩放
 
 ## 技术架构
 
@@ -35,7 +36,7 @@
 | 测试 | Vitest | ^4.0.0 |
 | 状态管理 | Zustand | ^5.0.13 |
 | Markdown | react-markdown + remark-gfm + remark-wiki-link | — |
-| 可视化 | d3-force（2D 力导向图谱） | — |
+| 可视化 | d3-force（2D 力导向图谱）+ d3-force-3d + Three.js（3D 星团图谱） | — |
 
 ### Tauri 插件
 
@@ -108,7 +109,7 @@ src/
 | **AI 客户端** | 0% | `src/core/ai-client.ts` 不存在，无 LLM 依赖 |
 | **AI 面板** | 0% | `src/components/AiPanel/` 不存在 |
 | **Markdown→PDF** | 0% | `src/core/markdown-to-pdf.ts` 不存在，无 PDF 库 |
-| **图谱关系** | 70% | Wiki-Link 解析 + d3-force 2D 图谱已实现，待添加 3D 升级和路径分析 |
+| **图谱关系** | 85% | Wiki-Link 解析 + 2D d3-force + 3D d3-force-3d/Three.js 星团效果已实现，待添加路径分析 |
 | **移动端** | 0% | 仅 lib.rs 有 `#[cfg_attr(mobile)]` 声明，无实际适配 |
 | **平台抽象层** | 0% | `src/platforms/desktop.ts` 和 `mobile.ts` 不存在 |
 
