@@ -143,7 +143,7 @@ fn default_base_dir() -> Result<PathBuf, AppError> {
     }
 
     if let Ok(user_profile) = env::var("USERPROFILE") {
-        return Ok(PathBuf::from(user_profile).join("Documents").join("花笺"));
+        return Ok(PathBuf::from(user_profile).join("Documents").join("星座"));
     }
 
     Ok(env::current_dir()?.join("data"))

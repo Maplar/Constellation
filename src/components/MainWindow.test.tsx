@@ -16,7 +16,7 @@ describe("MainWindow settings", () => {
       <MainWindow
         initialSettingsOpen
         initialConfig={{
-          notesDir: "D:\\Notes\\花笺",
+          notesDir: "D:\\Notes\\星座",
           globalShortcut: "Ctrl+Space",
           closeToTray: true,
           autostart: false,
@@ -33,7 +33,7 @@ describe("MainWindow settings", () => {
     );
 
     expect(markup).toContain("应用设置");
-    expect(markup).toContain("D:\\Notes\\花笺");
+    expect(markup).toContain("D:\\Notes\\星座");
   });
 
   test("keeps draggable window chrome on the default arrow cursor", () => {

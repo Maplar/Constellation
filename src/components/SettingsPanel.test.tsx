@@ -11,7 +11,7 @@ import { describe, expect, test, vi } from "vitest";
 import { SettingsPanel } from "./SettingsPanel";
 
 const config = {
-  notesDir: "D:\\Notes\\花笺",
+  notesDir: "D:\\Notes\\星座",
   globalShortcut: "Ctrl+Space",
   closeToTray: true,
   autostart: false,
@@ -37,7 +37,7 @@ describe("SettingsPanel", () => {
     );
 
     expect(markup).toContain("应用设置");
-    expect(markup).toContain("D:\\Notes\\花笺");
+    expect(markup).toContain("D:\\Notes\\星座");
     expect(markup).toContain("选择文件夹");
     expect(markup).toContain("Ctrl+Space");
     expect(markup).toContain("Alt+Space");

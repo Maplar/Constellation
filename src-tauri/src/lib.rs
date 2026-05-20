@@ -14,7 +14,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 #[tauri::command]
 fn app_name() -> &'static str {
-    "花笺"
+    "星座"
 }
 
 #[tauri::command]

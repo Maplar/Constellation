@@ -1,8 +1,8 @@
 > **本项目基于 [floral-notepaper](https://github.com/Achilng/floral-notepaper) 二次开发，原始代码采用 MIT 许可证，原始版权归 Achilng 所有。修改部分版权归 Maplar 所有。**
 
-# 花笺
+# 星座
 
-花笺是一款基于 Tauri 2 + React 构建的轻量、优雅、现代化的本地便签工具。
+星座是一款基于 Tauri 2 + React 构建的轻量、优雅、现代化的本地便签工具。
 
 > 本仓库为二次开发版本，新增分类管理、多窗口池、自动保存、外部文件引用等功能，并规划了 AI 总结、图谱关系、PDF 导出等模块。
 
@@ -82,7 +82,7 @@ src/
 | `CategoryGroup` | `src/features/notes/noteUtils.ts:38-42` | category, notes[], latestUpdatedAt |
 | `AppRoute` | `src/features/windows/windowRoutes.ts:3-6` | view ("main" / "notepad" / "tile"), noteId? |
 
-**存储方式**：笔记以 `<uuid>_<safe_title>.md` 文件存储在按分类划分子目录的文件夹中，元数据聚合在 `metadata.json`。配置保存在 `config.json`。默认数据目录为 `%USERPROFILE%\Documents\花笺`。
+**存储方式**：笔记以 `<uuid>_<safe_title>.md` 文件存储在按分类划分子目录的文件夹中，元数据聚合在 `metadata.json`。配置保存在 `config.json`。默认数据目录为 `%USERPROFILE%\Documents\星座`。
 
 ## 模块完成度
 

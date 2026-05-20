@@ -930,7 +930,7 @@ export function MainWindow({
         >
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-[13px] font-display font-medium text-ink-soft tracking-wide">
-              花笺
+              星座
             </span>
             <span className="text-[11px] text-ink-ghost font-body">—</span>
             <span className="text-[11px] text-ink-faint font-body truncate max-w-[240px]">

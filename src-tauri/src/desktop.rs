@@ -342,7 +342,7 @@ fn setup_tray(app: &mut App) -> Result<(), Box<dyn Error>> {
                 .expect("missing default window icon")
                 .clone(),
         )
-        .tooltip("花笺")
+        .tooltip("星座")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
@@ -402,7 +402,7 @@ pub fn show_main_window(app: &AppHandle) -> Result<(), AppError> {
         app,
         MAIN_WINDOW_LABEL,
         "index.html".to_string(),
-        "花笺",
+        "星座",
         1180.0,
         760.0,
         900.0,
@@ -438,7 +438,7 @@ fn open_notepad_window_now(
         app,
         &label,
         url,
-        "花笺便签",
+        "星座便签",
         specs.width,
         specs.height,
         specs.min_width,
@@ -531,7 +531,7 @@ fn prewarm_notepad(app: &AppHandle) -> Result<(), AppError> {
         &label,
         WebviewUrl::App("index.html?view=notepad&standby=1".into()),
     )
-    .title("花笺便签")
+    .title("星座便签")
     .inner_size(specs.width, specs.height)
     .min_inner_size(specs.min_width, specs.min_height)
     .resizable(true)
@@ -572,7 +572,7 @@ fn open_tile_window_now(
         app,
         &label,
         url,
-        "花笺磁贴",
+        "星座磁贴",
         specs.width,
         specs.height,
         specs.min_width,
