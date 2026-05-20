@@ -214,19 +214,19 @@ export function ForceGraph3D({ nodes, edges, selectedNoteId, onNodeClick }: Forc
       .force("charge", d3Force3d.forceManyBody<SimNode3D>().strength(-200))
       .force(
         "x",
-        d3Force3d
-          .forceX<SimNode3D>(0)
-          .strength((d: SimNode3D) => 0.05 + d.val * 0.03),
+        d3Force3d.forceX<SimNode3D>(0).strength((d: SimNode3D) => d.val * 0.1),
       )
       .force(
         "y",
-        d3Force3d
-          .forceY<SimNode3D>(0)
-          .strength((d: SimNode3D) => 0.05 + d.val * 0.03),
+        d3Force3d.forceY<SimNode3D>(0).strength((d: SimNode3D) => d.val * 0.1),
+      )
+      .force(
+        "z",
+        d3Force3d.forceZ<SimNode3D>(0).strength((d: SimNode3D) => d.val * 0.1),
       )
       .force(
         "center",
-        d3Force3d.forceCenter<SimNode3D>(0, 0, 0).strength(0.03),
+        d3Force3d.forceCenter<SimNode3D>(0, 0, 0).strength(0.02),
       )
       .force(
         "collide",
