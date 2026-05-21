@@ -52,6 +52,7 @@ import { SearchBar } from "../modules/notes/components/SearchBar";
 import { highlightText } from "../modules/shared/utils/highlightUtils";
 import { summarizeNote } from "../modules/notes/services/aiService";
 import { loadAiSettings } from "../modules/settings/ai";
+import { AiSummaryModal } from "../modules/notes/components/AiSummaryModal";
 import {
   noteContextMenuItems,
   type NoteContextMenuAction,
@@ -1772,40 +1773,13 @@ export function MainWindow({
           )}
         </div>
       </div>
-      {(aiResult || aiError) && (
-        <div
-          className="fixed inset-0 z-[9998] flex items-start justify-center pt-20 bg-shadow-deep/10 backdrop-blur-[2px]"
-          onClick={() => { setAiResult(null); setAiError(null); }}
-        >
-          <div
-            className="w-[520px] max-h-[70vh] bg-cloud border border-paper-deep/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 h-11 border-b border-paper-deep/25 shrink-0">
-              <h3 className="text-[13px] font-display font-medium text-ink-soft">
-                AI 总结
-              </h3>
-              <button
-                onClick={() => { setAiResult(null); setAiError(null); }}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-ghost hover:text-ink-soft hover:bg-paper-warm transition-colors cursor-pointer"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M2 2l8 8M10 2l-8 8" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {aiError ? (
-                <p className="text-[13px] text-red-400 leading-relaxed">{aiError}</p>
-              ) : (
-                <div className="text-[13px] text-ink-soft leading-relaxed whitespace-pre-wrap">
-                  {aiResult}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <AiSummaryModal
+        open={aiResult !== null || aiError !== null || aiLoading}
+        loading={aiLoading}
+        result={aiResult}
+        error={aiError}
+        onClose={() => { setAiResult(null); setAiError(null); }}
+      />
       {noteMenu && noteMenuTarget && (
         <div
           className={`fixed z-[9999] min-w-[168px] py-1.5 bg-cloud/95 backdrop-blur-sm border border-paper-deep/50 rounded-lg overflow-hidden select-none ${noteMenuClosing ? "animate-menu-exit" : "animate-menu-enter"}`}
