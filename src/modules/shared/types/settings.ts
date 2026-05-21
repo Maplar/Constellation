@@ -12,6 +12,12 @@ export type ThemeOption = "light" | "dark" | "system";
 
 export type TileColorMode = "system" | "custom";
 
+export interface AIConfig {
+  apiKey: string;
+  baseURL: string;
+  model: string;
+}
+
 export interface AppConfig {
   notesDir: string;
   globalShortcut: string;
@@ -25,4 +31,5 @@ export interface AppConfig {
   theme: ThemeOption;
   fontSize: number;
   surfaceFontSize: number;
+  aiConfig?: AIConfig;
 }

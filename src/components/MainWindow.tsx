@@ -9,7 +9,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
 import { exportMarkdownNote, importMarkdownNote } from "../modules/notes/api/export";
 import { MarkdownPreview } from "../modules/notes/components/MarkdownPreview";
 import {
@@ -51,6 +50,7 @@ import type { CategoryGroup } from "../modules/shared/utils/noteUtils";
 import { useNoteStore } from "../modules/notes/stores/useNoteStore";
 import { SearchBar } from "../modules/notes/components/SearchBar";
 import { highlightText } from "../modules/shared/utils/highlightUtils";
+import { summarizeNote } from "../modules/settings/ai";
 import {
   noteContextMenuItems,
   type NoteContextMenuAction,
@@ -385,7 +385,7 @@ export function MainWindow({
     setAiError(null);
     setAiResult(null);
     try {
-      const summary = await invoke<string>("ai_summarize", { content });
+      const summary = await summarizeNote(content);
       setAiResult(summary);
     } catch (error) {
       setAiError(String(error));

@@ -8,6 +8,7 @@ pub mod desktop;
 pub mod services;
 
 use services::notes::{default_store, AppConfig, AppError, Note, NoteMetadata, SaveNoteRequest};
+use services::ai::AIConfig;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -157,8 +158,13 @@ async fn open_tile_window(
 }
 
 #[tauri::command]
-async fn ai_summarize(app: AppHandle, content: String) -> Result<String, AppError> {
-    services::ai::summarize_note(&app, &content).await
+fn save_ai_config(app: AppHandle, config: AIConfig) -> Result<(), AppError> {
+    services::ai::save_ai_config(&app, config)
+}
+
+#[tauri::command]
+fn load_ai_config(app: AppHandle) -> Result<AIConfig, AppError> {
+    services::ai::load_ai_config(&app)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -206,7 +212,8 @@ pub fn run() {
             open_notepad_window,
             recycle_notepad_window,
             open_tile_window,
-            ai_summarize
+            save_ai_config,
+            load_ai_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
