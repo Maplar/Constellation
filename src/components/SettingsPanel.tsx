@@ -313,6 +313,9 @@ export function SettingsPanel({
               autoComplete="off"
               className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
             />
+            <p className="text-[10px] text-ink-ghost/50 leading-relaxed">
+              Key 存储于本地系统密钥链（加密），不会上传到任何服务器
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -326,6 +329,9 @@ export function SettingsPanel({
               placeholder="https://api.openai.com/v1"
               className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
             />
+            <p className="text-[10px] text-ink-ghost/60 leading-relaxed">
+              支持任何 OpenAI 兼容接口（如 API 代理、中转站、DeepSeek、Ollama 等）
+            </p>
           </div>
 
           <div className="space-y-1.5">
