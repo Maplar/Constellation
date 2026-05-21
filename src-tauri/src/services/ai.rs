@@ -66,24 +66,9 @@ pub fn save_ai_config(app: &AppHandle, config: AIConfig) -> Result<(), AppError>
         message: format!("无法打开存储: {}", e),
     })?;
 
-    store
-        .set("aiApiKey", serde_json::Value::String(config.api_key))
-        .map_err(|e| AppError {
-            code: "store".into(),
-            message: format!("保存 API Key 失败: {}", e),
-        })?;
-    store
-        .set("aiBaseUrl", serde_json::Value::String(config.base_url))
-        .map_err(|e| AppError {
-            code: "store".into(),
-            message: format!("保存 Base URL 失败: {}", e),
-        })?;
-    store
-        .set("aiModel", serde_json::Value::String(config.model))
-        .map_err(|e| AppError {
-            code: "store".into(),
-            message: format!("保存 Model 失败: {}", e),
-        })?;
+    store.set("aiApiKey", serde_json::Value::String(config.api_key));
+    store.set("aiBaseUrl", serde_json::Value::String(config.base_url));
+    store.set("aiModel", serde_json::Value::String(config.model));
     store.save().map_err(|e| AppError {
         code: "store".into(),
         message: format!("持久化失败: {}", e),
