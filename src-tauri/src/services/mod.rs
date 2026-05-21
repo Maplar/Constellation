@@ -4,4 +4,5 @@
 // 修改部分版权：Copyright (c) 2026 Maplar
 // 修改说明：二次开发修改
 
+pub mod ai;
 pub mod notes;

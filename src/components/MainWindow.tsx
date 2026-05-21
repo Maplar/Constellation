@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { exportMarkdownNote, importMarkdownNote } from "../modules/notes/api/export";
 import { MarkdownPreview } from "../modules/notes/components/MarkdownPreview";
 import {
@@ -281,6 +282,9 @@ export function MainWindow({
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
   const [renameCategoryValue, setRenameCategoryValue] = useState("");
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   const selectedNote = useMemo(
@@ -371,6 +375,24 @@ export function MainWindow({
     setContent("");
     setSaveState("idle");
   }, []);
+
+  const handleAiSummarize = useCallback(async () => {
+    if (!content.trim()) {
+      setAiError("笔记内容为空");
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    setAiResult(null);
+    try {
+      const summary = await invoke<string>("ai_summarize", { content });
+      setAiResult(summary);
+    } catch (error) {
+      setAiError(String(error));
+    } finally {
+      setAiLoading(false);
+    }
+  }, [content]);
 
   const loadExternalFile = useCallback(async (filePath: string) => {
     setErrorMessage(null);
@@ -1640,6 +1662,24 @@ export function MainWindow({
                             {button.label}
                           </button>
                         ))}
+                        <span className="w-px h-4 bg-paper-deep/40 mx-1" />
+                        <button
+                          title="AI 总结"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => void handleAiSummarize()}
+                          disabled={aiLoading}
+                          className={`text-[10px] px-1.5 h-6 flex items-center justify-center rounded transition-all cursor-pointer ${
+                            aiLoading
+                              ? "text-bamboo/50 cursor-wait"
+                              : "text-bamboo hover:text-bamboo-light hover:bg-bamboo-mist/60"
+                          }`}
+                        >
+                          {aiLoading ? (
+                            <span className="animate-pulse">✦</span>
+                          ) : (
+                            <span>✦ AI</span>
+                          )}
+                        </button>
                       </div>
 
                       <div className="flex-1 overflow-y-auto px-5 pb-4">
@@ -1723,6 +1763,40 @@ export function MainWindow({
           )}
         </div>
       </div>
+      {(aiResult || aiError) && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-start justify-center pt-20 bg-shadow-deep/10 backdrop-blur-[2px]"
+          onClick={() => { setAiResult(null); setAiError(null); }}
+        >
+          <div
+            className="w-[520px] max-h-[70vh] bg-cloud border border-paper-deep/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 h-11 border-b border-paper-deep/25 shrink-0">
+              <h3 className="text-[13px] font-display font-medium text-ink-soft">
+                AI 总结
+              </h3>
+              <button
+                onClick={() => { setAiResult(null); setAiError(null); }}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-ghost hover:text-ink-soft hover:bg-paper-warm transition-colors cursor-pointer"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M2 2l8 8M10 2l-8 8" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {aiError ? (
+                <p className="text-[13px] text-red-400 leading-relaxed">{aiError}</p>
+              ) : (
+                <div className="text-[13px] text-ink-soft leading-relaxed whitespace-pre-wrap">
+                  {aiResult}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {noteMenu && noteMenuTarget && (
         <div
           className={`fixed z-[9999] min-w-[168px] py-1.5 bg-cloud/95 backdrop-blur-sm border border-paper-deep/50 rounded-lg overflow-hidden select-none ${noteMenuClosing ? "animate-menu-exit" : "animate-menu-enter"}`}

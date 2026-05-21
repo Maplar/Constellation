@@ -15,6 +15,8 @@ import {
 } from "../modules/settings/tileColor";
 import { applyTheme, watchSystemTheme } from "../modules/settings/theme";
 import { SlidingButtonGroup } from "../modules/shared/components/SlidingButtonGroup";
+import { loadAiSettings, saveAiSettings } from "../modules/settings/ai";
+import type { AiSettings } from "../modules/settings/ai";
 
 const tileColorModes: Array<{ value: TileColorMode; label: string }> = [
   { value: "system", label: "跟随主题" },
@@ -51,6 +53,19 @@ export function SettingsPanel({
     value: AppConfig[Key],
   ) => {
     onChange({ ...config, [key]: value });
+  };
+
+  const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
+
+  useEffect(() => {
+    void loadAiSettings().then(setAiSettings);
+  }, []);
+
+  const handleAiChange = (partial: Partial<AiSettings>) => {
+    if (!aiSettings) return;
+    const next = { ...aiSettings, ...partial };
+    setAiSettings(next);
+    void saveAiSettings(next);
   };
 
   return (
@@ -245,6 +260,51 @@ export function SettingsPanel({
             value={config.defaultViewMode}
             onChange={(v) => setConfigValue("defaultViewMode", v)}
           />
+        </section>
+
+        <section className="space-y-3 pt-4 border-t border-paper-deep/20">
+          <h3 className="text-[10px] font-mono tracking-wider text-ink-ghost uppercase">
+            AI 总结
+          </h3>
+
+          <div className="space-y-2">
+            <label className="block text-[11px] font-body text-ink-faint">
+              API Key
+            </label>
+            <input
+              type="password"
+              value={aiSettings?.apiKey ?? ""}
+              onChange={(e) => handleAiChange({ apiKey: e.target.value })}
+              placeholder="sk-..."
+              className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-[11px] font-body text-ink-faint">
+              Base URL
+            </label>
+            <input
+              type="text"
+              value={aiSettings?.baseUrl ?? ""}
+              onChange={(e) => handleAiChange({ baseUrl: e.target.value })}
+              placeholder="https://api.openai.com/v1"
+              className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-[11px] font-body text-ink-faint">
+              模型名称
+            </label>
+            <input
+              type="text"
+              value={aiSettings?.model ?? ""}
+              onChange={(e) => handleAiChange({ model: e.target.value })}
+              placeholder="gpt-3.5-turbo"
+              className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
+            />
+          </div>
         </section>
       </div>
 

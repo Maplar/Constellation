@@ -156,6 +156,11 @@ async fn open_tile_window(
     desktop::open_tile_window(app, note_id, bounds).await
 }
 
+#[tauri::command]
+async fn ai_summarize(app: AppHandle, content: String) -> Result<String, AppError> {
+    services::ai::summarize_note(&app, &content).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -168,6 +173,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(file_path) = desktop::extract_file_arg(&args) {
                 let _ = app.emit("open-external-file", file_path);
@@ -199,7 +205,8 @@ pub fn run() {
             config_save,
             open_notepad_window,
             recycle_notepad_window,
-            open_tile_window
+            open_tile_window,
+            ai_summarize
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

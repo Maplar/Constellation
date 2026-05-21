@@ -21,6 +21,7 @@
 - **2D 力导向图谱** — 基于 d3-force 的笔记关系图谱可视化，节点大小反映被引次数，支持缩放/拖拽/点击跳转
 - **3D 图谱与星团效果** — 支持 2D/3D 切换，引用越多的笔记越靠近中心，形成星团布局。
 - **搜索增强** — 基于 Fuse.js 的模糊搜索，支持标题、内容、分类实时过滤及关键词高亮。
+- **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储。
 
 ## 技术架构
 
@@ -39,6 +40,8 @@
 | Markdown | react-markdown + remark-gfm + remark-wiki-link | — |
 | 可视化 | d3-force（2D 力导向图谱）+ d3-force-3d + Three.js（3D 星团图谱） | — |
 | 搜索 | Fuse.js | ^7.3.0 |
+| AI | openai (npm) + reqwest (Rust) | — |
+| 存储加密 | tauri-plugin-store | v2 |
 
 ### Tauri 插件
 
@@ -108,7 +111,7 @@ src/
 | **导入导出** | 100% | Markdown 双向导入导出，文件对话框集成 |
 | **外部文件引用** | 100% | 直接读写外部 .md 文件 |
 | **搜索** | 100% | 基于 Fuse.js 实现模糊搜索，支持相关性排序和关键词高亮 |
-| **AI 客户端** | 0% | `src/core/ai-client.ts` 不存在，无 LLM 依赖 |
+| **AI 客户端** | 85% | 支持 OpenAI 风格 API 配置与调用，可对笔记生成智能摘要 |
 | **AI 面板** | 0% | `src/components/AiPanel/` 不存在 |
 | **Markdown→PDF** | 0% | `src/core/markdown-to-pdf.ts` 不存在，无 PDF 库 |
 | **图谱关系** | 85% | 支持 2D/3D 切换，实现星团效果（引用计数影响节点引力） |
@@ -136,7 +139,7 @@ floral-notepaper/
 │       │   ├── components/           # MainWindow, MarkdownPreview, ForceGraph2D, GraphView
 │       │   ├── stores/               # Zustand store（useNoteStore.ts）
 │       │   ├── services/             # 搜索服务（searchService.ts）
-│       │   ├── hooks/                # useGraphData, useNotes
+│       │   ├── hooks/                # useGraphData, useNotes, useDebounce
 │       │   ├── api/                  # 笔记 CRUD + 导入导出 API
 │       │   ├── linkParser.ts         # Wiki-Link 解析器
 │       │   └── noteContextMenu.ts    # 右键菜单
