@@ -20,6 +20,7 @@
 - **Wiki-Link 解析** — 支持 `[[笔记标题]]` 和 `[[笔记标题|别名]]` 语法，自动解析笔记间引用关系
 - **2D 力导向图谱** — 基于 d3-force 的笔记关系图谱可视化，节点大小反映被引次数，支持缩放/拖拽/点击跳转
 - **3D 图谱与星团效果** — 支持 2D/3D 切换，引用越多的笔记越靠近中心，形成星团布局。
+- **搜索增强** — 基于 Fuse.js 的模糊搜索，支持标题、内容、分类实时过滤及关键词高亮。
 
 ## 技术架构
 
@@ -37,6 +38,7 @@
 | 状态管理 | Zustand | ^5.0.13 |
 | Markdown | react-markdown + remark-gfm + remark-wiki-link | — |
 | 可视化 | d3-force（2D 力导向图谱）+ d3-force-3d + Three.js（3D 星团图谱） | — |
+| 搜索 | Fuse.js | ^7.3.0 |
 
 ### Tauri 插件
 
@@ -105,7 +107,7 @@ src/
 | **全局快捷键** | 100% | Ctrl+Space / Alt+Space 唤出便签 |
 | **导入导出** | 100% | Markdown 双向导入导出，文件对话框集成 |
 | **外部文件引用** | 100% | 直接读写外部 .md 文件 |
-| **搜索** | 70% | 基于字符串 `includes` 的简单匹配，未使用 Fuse.js |
+| **搜索** | 100% | 基于 Fuse.js 实现模糊搜索，支持相关性排序和关键词高亮 |
 | **AI 客户端** | 0% | `src/core/ai-client.ts` 不存在，无 LLM 依赖 |
 | **AI 面板** | 0% | `src/components/AiPanel/` 不存在 |
 | **Markdown→PDF** | 0% | `src/core/markdown-to-pdf.ts` 不存在，无 PDF 库 |
@@ -128,11 +130,12 @@ floral-notepaper/
 │       ├── shared/                   # 跨模块共享
 │       │   ├── types/                # 全局类型（notes.ts, settings.ts）
 │       │   ├── hooks/                # 通用 hooks
-│       │   ├── utils/                # 通用工具（noteUtils.ts）
+│       │   ├── utils/                # 通用工具（noteUtils.ts, highlightUtils.tsx）
 │       │   └── components/           # 通用 UI（ContextMenu, SlidingButtonGroup）
 │       ├── notes/                    # 笔记管理模块
 │       │   ├── components/           # MainWindow, MarkdownPreview, ForceGraph2D, GraphView
 │       │   ├── stores/               # Zustand store（useNoteStore.ts）
+│       │   ├── services/             # 搜索服务（searchService.ts）
 │       │   ├── hooks/                # useGraphData, useNotes
 │       │   ├── api/                  # 笔记 CRUD + 导入导出 API
 │       │   ├── linkParser.ts         # Wiki-Link 解析器

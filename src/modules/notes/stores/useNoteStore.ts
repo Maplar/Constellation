@@ -4,9 +4,12 @@
  */
 
 import { create } from "zustand";
+import Fuse from "fuse.js";
 import type { GraphEdge, LinkGraph, Note, NoteMetadata, WikiLink } from "../../shared/types/notes";
 import { listNotes, getNote } from "../api";
 import { parseAllLinks, buildLinkGraph } from "../linkParser";
+import type { SearchResult } from "../services/searchService";
+import { createSearchIndex, searchNotes } from "../services/searchService";
 
 interface NoteStoreState {
   notesMetadata: NoteMetadata[];
@@ -16,6 +19,9 @@ interface NoteStoreState {
   selectedNoteId: string | null;
   isLoading: boolean;
   errorMessage: string | null;
+  searchQuery: string;
+  searchResults: SearchResult[];
+  fuseIndex: Fuse<Note> | null;
 }
 
 interface NoteStoreActions {
@@ -25,6 +31,8 @@ interface NoteStoreActions {
   rebuildGraph: () => void;
   getLinkedNotes: (noteId: string) => GraphEdge[];
   getBacklinks: (noteId: string) => GraphEdge[];
+  setSearchQuery: (query: string) => void;
+  performSearch: () => void;
 }
 
 type NoteStore = NoteStoreState & NoteStoreActions;
@@ -37,6 +45,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   selectedNoteId: null,
   isLoading: false,
   errorMessage: null,
+  searchQuery: "",
+  searchResults: [],
+  fuseIndex: null,
 
   loadNotes: async () => {
     set({ isLoading: true, errorMessage: null });
@@ -67,7 +78,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       }
       const links = parseAllLinks(fullNotes);
       const graph = buildLinkGraph(fullNotes);
-      set({ notes: fullNotes, wikiLinks: links, linkGraph: graph, isLoading: false });
+      const fuseIndex = createSearchIndex(fullNotes);
+      set({ notes: fullNotes, wikiLinks: links, linkGraph: graph, fuseIndex, isLoading: false });
+      get().performSearch();
     } catch (error) {
       set({ isLoading: false, errorMessage: String(error) });
     }
@@ -93,5 +106,20 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   getBacklinks: (noteId) => {
     const { linkGraph } = get();
     return linkGraph.edges.filter((e) => e.target === noteId);
+  },
+
+  setSearchQuery: (query) => {
+    set({ searchQuery: query });
+    get().performSearch();
+  },
+
+  performSearch: () => {
+    const { searchQuery: q, fuseIndex } = get();
+    if (!fuseIndex || !q.trim()) {
+      set({ searchResults: [] });
+      return;
+    }
+    const results = searchNotes(fuseIndex, q);
+    set({ searchResults: results });
   },
 }));

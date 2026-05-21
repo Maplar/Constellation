@@ -47,6 +47,9 @@ import {
   metadataFromNote,
 } from "../modules/shared/utils/noteUtils";
 import type { CategoryGroup } from "../modules/shared/utils/noteUtils";
+import { useNoteStore } from "../modules/notes/stores/useNoteStore";
+import { SearchBar } from "../modules/notes/components/SearchBar";
+import { highlightText } from "../modules/shared/utils/highlightUtils";
 import {
   noteContextMenuItems,
   type NoteContextMenuAction,
@@ -243,7 +246,10 @@ export function MainWindow({
   const [notes, setNotes] = useState<NoteMetadata[]>([]);
   const [externalFiles, setExternalFiles] = useState<ExternalFile[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchQuery = useNoteStore((s) => s.searchQuery);
+  const searchResults = useNoteStore((s) => s.searchResults);
+  const loadFullNotes = useNoteStore((s) => s.loadFullNotes);
+  const loadStoreNotes = useNoteStore((s) => s.loadNotes);
   const [viewMode, setViewMode] = useState<ViewMode>(
     normalizeViewMode(initialConfig?.defaultViewMode ?? "split"),
   );
@@ -294,10 +300,13 @@ export function MainWindow({
     [noteMenu?.noteId, notes],
   );
 
-  const filteredNotes = useMemo(
-    () => filterNotes(notes, searchQuery),
-    [notes, searchQuery],
-  );
+  const filteredNotes = useMemo(() => {
+    if (!searchQuery.trim()) return notes;
+    if (searchResults.length > 0) {
+      return searchResults.map((r) => metadataFromNote(r.note));
+    }
+    return filterNotes(notes, searchQuery);
+  }, [notes, searchQuery, searchResults]);
 
   const categoryGroups = useMemo(
     () => groupNotesByCategory(filteredNotes, categories),
@@ -350,8 +359,11 @@ export function MainWindow({
     ]);
     setNotes(loadedNotes);
     setCategories(loadedCategories);
+    void loadStoreNotes().then(() => {
+      void loadFullNotes();
+    });
     return loadedNotes;
-  }, []);
+  }, [loadStoreNotes, loadFullNotes]);
 
   const clearCurrentNote = useCallback(() => {
     setSelectedId(null);
@@ -408,6 +420,7 @@ export function MainWindow({
         setViewMode(normalizeViewMode(loadedConfig.defaultViewMode));
         setNotes(loadedNotes);
         setCategories(loadedCategories);
+        void loadFullNotes();
         if (loadedNotes[0]) {
           const note = await getNote(loadedNotes[0].id);
           if (!cancelled) applyNote(note);
@@ -1027,49 +1040,7 @@ export function MainWindow({
               sidebarCollapsed ? "w-0 overflow-hidden" : "w-[280px]"
             }`}
           >
-            <div className="px-3 pt-3 pb-2 shrink-0">
-              <div className="flex items-center gap-2 px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 focus-within:border-bamboo/30 focus-within:bg-cloud transition-all">
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  className="text-ink-ghost shrink-0"
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.35-4.35" />
-                </svg>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="搜索笔记…"
-                  className="flex-1 text-[12px] font-body text-ink placeholder:text-ink-ghost/60 bg-transparent"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="text-ink-ghost hover:text-ink-faint transition-colors cursor-pointer"
-                    title="清空搜索"
-                  >
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                    >
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
+            <SearchBar resultCount={filteredNotes.length} />
 
             <div className="px-3 pb-2 shrink-0 space-y-1">
               <button
@@ -1242,14 +1213,18 @@ export function MainWindow({
                             <span className={`text-[13px] font-display font-medium truncate pr-2 transition-colors ${
                               isSelected ? "text-bamboo" : "text-ink-soft"
                             }`}>
-                              {getDisplayTitle(note)}
+                              {searchQuery
+                                ? highlightText(getDisplayTitle(note), searchQuery)
+                                : getDisplayTitle(note)}
                             </span>
                             <span className="text-[10px] text-ink-ghost font-mono tabular-nums shrink-0">
                               {formatShortDate(note.updatedAt)}
                             </span>
                           </div>
                           <p className="text-[11px] text-ink-ghost leading-relaxed line-clamp-2 group-hover:text-ink-faint transition-colors">
-                            {note.preview || "空白笔记"}
+                            {searchQuery
+                              ? highlightText(note.preview || "空白笔记", searchQuery)
+                              : (note.preview || "空白笔记")}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] text-ink-ghost/60 font-mono tabular-nums">
@@ -1401,7 +1376,9 @@ export function MainWindow({
                                       isSelected ? "text-bamboo" : "text-ink-soft"
                                     }`}
                                   >
-                                    {getDisplayTitle(note)}
+                                    {searchQuery
+                                      ? highlightText(getDisplayTitle(note), searchQuery)
+                                      : getDisplayTitle(note)}
                                   </span>
                                   <span className="text-[10px] text-ink-ghost font-mono tabular-nums shrink-0">
                                     {formatShortDate(note.updatedAt)}
@@ -1409,7 +1386,9 @@ export function MainWindow({
                                 </div>
 
                                 <p className="text-[11px] text-ink-ghost leading-relaxed line-clamp-2 group-hover:text-ink-faint transition-colors">
-                                  {note.preview || "空白笔记"}
+                                  {searchQuery
+                                    ? highlightText(note.preview || "空白笔记", searchQuery)
+                                    : (note.preview || "空白笔记")}
                                 </p>
 
                                 <div className="flex items-center gap-2 mt-1">

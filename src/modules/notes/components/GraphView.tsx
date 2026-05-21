@@ -3,16 +3,17 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { ForceGraph2D } from "./ForceGraph2D";
 import { ForceGraph3D } from "./ForceGraph3D";
 import { useNoteStore } from "../stores/useNoteStore";
 import type { NoteMetadata } from "../../shared/types/notes";
+import { filterNotes } from "../../shared/utils/noteUtils";
+import { highlightText } from "../../shared/utils/highlightUtils";
 
 export function GraphView() {
-  const { notesMetadata, isLoading, errorMessage, loadNotes, loadFullNotes, selectNote, linkGraph, selectedNoteId } =
+  const { notesMetadata, isLoading, errorMessage, loadNotes, loadFullNotes, selectNote, linkGraph, selectedNoteId, searchQuery, setSearchQuery } =
     useNoteStore();
-  const [searchQuery, setSearchQuery] = useState("");
   const [graphMode, setGraphMode] = useState<"2d" | "3d">("3d");
   const graphKey = useRef(0);
 
@@ -23,13 +24,10 @@ export function GraphView() {
     })();
   }, [loadNotes, loadFullNotes]);
 
-  const filteredNotes = searchQuery
-    ? notesMetadata.filter(
-        (n) =>
-          n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          n.preview.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : notesMetadata;
+  const filteredNotes = useMemo(
+    () => filterNotes(notesMetadata, searchQuery),
+    [notesMetadata, searchQuery],
+  );
 
   const handleNodeClick = (noteId: string) => {
     selectNote(noteId);
@@ -124,7 +122,9 @@ export function GraphView() {
                     className="w-full text-left rounded-lg px-3 py-2 transition-all duration-200 cursor-pointer hover:bg-paper-warm/70"
                   >
                     <span className="text-[13px] font-display font-medium text-ink-soft truncate block">
-                      {note.title || "无标题笔记"}
+                      {searchQuery
+                        ? highlightText(note.title || "无标题笔记", searchQuery)
+                        : (note.title || "无标题笔记")}
                     </span>
                     <span className="text-[10px] text-ink-ghost/60 font-mono tabular-nums">
                       {note.wordCount} 字

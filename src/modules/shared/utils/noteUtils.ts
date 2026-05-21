@@ -6,6 +6,7 @@
  * 修改说明：二次开发修改
  */
 
+import Fuse from "fuse.js";
 import type { Note, NoteMetadata } from "../types/notes";
 
 export function getDisplayTitle(note: Pick<NoteMetadata, "title" | "preview">): string {
@@ -89,21 +90,27 @@ export function groupNotesByCategory(
   return result;
 }
 
-export function filterNotes(notes: NoteMetadata[], query: string): NoteMetadata[] {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return notes;
+const fuseFilterOptions = {
+  keys: [
+    { name: "title", weight: 0.5 },
+    { name: "preview", weight: 0.3 },
+    { name: "category", weight: 0.1 },
+    { name: "fileName", weight: 0.1 },
+  ],
+  threshold: 0.2,
+  distance: 100,
+  minMatchCharLength: 2,
+  shouldSort: true,
+  ignoreLocation: false,
+  findAllMatches: true,
+};
 
-  return notes.filter((note) => {
-    const haystack = [
-      note.title,
-      note.preview,
-      note.fileName,
-      getDisplayTitle(note),
-    ]
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(normalized);
-  });
+export function filterNotes(notes: NoteMetadata[], query: string): NoteMetadata[] {
+  const trimmed = query.trim();
+  if (!trimmed) return notes;
+
+  const fuse = new Fuse(notes, fuseFilterOptions);
+  return fuse.search(trimmed).map((r) => r.item);
 }
 
 export function formatShortDate(value: string): string {
