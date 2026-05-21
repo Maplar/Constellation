@@ -15,7 +15,7 @@ import {
 } from "../modules/settings/tileColor";
 import { applyTheme, watchSystemTheme } from "../modules/settings/theme";
 import { SlidingButtonGroup } from "../modules/shared/components/SlidingButtonGroup";
-import { loadAiSettings, saveAiSettings } from "../modules/settings/ai";
+import { loadAiSettings, saveAiSettings, testAiConnection } from "../modules/settings/ai";
 import type { AiSettings } from "../modules/settings/ai";
 
 const tileColorModes: Array<{ value: TileColorMode; label: string }> = [
@@ -56,16 +56,50 @@ export function SettingsPanel({
   };
 
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
+  const [aiTestStatus, setAiTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [aiTestMessage, setAiTestMessage] = useState("");
 
   useEffect(() => {
-    void loadAiSettings().then(setAiSettings);
+    void loadAiSettings().then((loaded) => {
+      setAiSettings(loaded);
+    });
   }, []);
 
   const handleAiChange = (partial: Partial<AiSettings>) => {
     if (!aiSettings) return;
-    const next = { ...aiSettings, ...partial };
-    setAiSettings(next);
-    void saveAiSettings(next);
+    setAiSettings({ ...aiSettings, ...partial });
+    setAiTestStatus("idle");
+    setAiTestMessage("");
+  };
+
+  const handleSaveAiConfig = async () => {
+    if (!aiSettings) return;
+    try {
+      await saveAiSettings(aiSettings);
+      setAiTestStatus("success");
+      setAiTestMessage("保存成功");
+      setTimeout(() => {
+        setAiTestStatus((s) => (s === "success" ? "idle" : s));
+        setAiTestMessage("");
+      }, 2000);
+    } catch {
+      setAiTestStatus("error");
+      setAiTestMessage("保存失败");
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!aiSettings) return;
+    setAiTestStatus("testing");
+    setAiTestMessage("");
+    try {
+      const reply = await testAiConnection(aiSettings);
+      setAiTestStatus("success");
+      setAiTestMessage(reply);
+    } catch (error) {
+      setAiTestStatus("error");
+      setAiTestMessage(String(error));
+    }
   };
 
   return (
@@ -264,10 +298,10 @@ export function SettingsPanel({
 
         <section className="space-y-3 pt-4 border-t border-paper-deep/20">
           <h3 className="text-[10px] font-mono tracking-wider text-ink-ghost uppercase">
-            AI 总结
+            AI 服务
           </h3>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="block text-[11px] font-body text-ink-faint">
               API Key
             </label>
@@ -276,11 +310,12 @@ export function SettingsPanel({
               value={aiSettings?.apiKey ?? ""}
               onChange={(e) => handleAiChange({ apiKey: e.target.value })}
               placeholder="sk-..."
+              autoComplete="off"
               className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="block text-[11px] font-body text-ink-faint">
               Base URL
             </label>
@@ -293,7 +328,7 @@ export function SettingsPanel({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="block text-[11px] font-body text-ink-faint">
               模型名称
             </label>
@@ -305,9 +340,42 @@ export function SettingsPanel({
               className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
             />
           </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleSaveAiConfig}
+              className="flex-1 h-8 rounded-lg border border-bamboo/40 text-[12px] font-body text-bamboo hover:bg-bamboo-mist/60 transition-colors cursor-pointer"
+            >
+              保存配置
+            </button>
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={aiTestStatus === "testing"}
+              className={`flex-1 h-8 rounded-lg border text-[12px] font-body transition-colors cursor-pointer ${
+                aiTestStatus === "testing"
+                  ? "border-paper-deep/30 text-ink-ghost cursor-wait"
+                  : "border-paper-deep/45 text-ink-faint hover:text-bamboo hover:border-bamboo/40 hover:bg-bamboo-mist/50"
+              }`}
+            >
+              {aiTestStatus === "testing" ? "测试中…" : "测试连接"}
+            </button>
+          </div>
+
+          {aiTestMessage && (
+            <p
+              className={`text-[11px] leading-relaxed px-2.5 py-1.5 rounded-lg ${
+                aiTestStatus === "success"
+                  ? "text-bamboo bg-bamboo-mist/40"
+                  : "text-red-400 bg-danger-bg"
+              }`}
+            >
+              {aiTestMessage}
+            </p>
+          )}
         </section>
       </div>
-
     </aside>
   );
 }

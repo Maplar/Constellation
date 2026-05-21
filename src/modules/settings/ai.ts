@@ -4,9 +4,7 @@
  */
 
 import OpenAI from "openai";
-import { load } from "@tauri-apps/plugin-store";
-
-const STORE_FILENAME = "ai-settings.json";
+import { invoke } from "@tauri-apps/api/core";
 
 export interface AiSettings {
   apiKey: string;
@@ -20,33 +18,36 @@ const DEFAULTS: AiSettings = {
   model: "gpt-3.5-turbo",
 };
 
-const storeDefaults = {
-  aiApiKey: "",
-  aiBaseUrl: DEFAULTS.baseUrl,
-  aiModel: DEFAULTS.model,
-};
-
-async function getStore() {
-  return load(STORE_FILENAME, { defaults: storeDefaults, autoSave: false });
-}
-
 export async function loadAiSettings(): Promise<AiSettings> {
-  const store = await getStore();
-
-  const apiKey = (await store.get<string>("aiApiKey")) ?? DEFAULTS.apiKey;
-  const baseUrl = (await store.get<string>("aiBaseUrl")) ?? DEFAULTS.baseUrl;
-  const model = (await store.get<string>("aiModel")) ?? DEFAULTS.model;
-
-  return { apiKey, baseUrl, model };
+  return invoke<AiSettings>("load_ai_config").catch(() => DEFAULTS);
 }
 
 export async function saveAiSettings(settings: AiSettings): Promise<void> {
-  const store = await getStore();
+  await invoke("save_ai_config", { config: settings });
+}
 
-  await store.set("aiApiKey", settings.apiKey);
-  await store.set("aiBaseUrl", settings.baseUrl);
-  await store.set("aiModel", settings.model);
-  await store.save();
+export async function testAiConnection(settings: AiSettings): Promise<string> {
+  if (!settings.apiKey) {
+    throw new Error("请先填写 API Key");
+  }
+
+  const client = new OpenAI({
+    apiKey: settings.apiKey,
+    baseURL: settings.baseUrl,
+    dangerouslyAllowBrowser: true,
+  });
+
+  const response = await client.chat.completions.create({
+    model: settings.model,
+    messages: [
+      { role: "user", content: "Hi" },
+    ],
+    max_tokens: 10,
+    temperature: 0,
+  });
+
+  const reply = response.choices[0]?.message?.content ?? "";
+  return reply || "连接成功 (无内容返回)";
 }
 
 export async function summarizeNote(content: string): Promise<string> {
