@@ -4,7 +4,7 @@
 
 星座是一款基于 Tauri 2 + React 构建的轻量、优雅、现代化的本地便签工具。
 
-> 本仓库为二次开发版本，新增分类管理、多窗口池、自动保存、外部文件引用等功能，并规划了 AI 总结、图谱关系、PDF 导出等模块。
+> 本仓库为二次开发版本，新增分类管理、多窗口池、自动保存、外部文件引用、AI 总结等功能，并规划了图谱关系、PDF 导出等模块。
 
 ## 功能特性
 
@@ -40,7 +40,7 @@
 | Markdown | react-markdown + remark-gfm + remark-wiki-link | — |
 | 可视化 | d3-force（2D 力导向图谱）+ d3-force-3d + Three.js（3D 星团图谱） | — |
 | 搜索 | Fuse.js | ^7.3.0 |
-| AI | openai (npm) + reqwest (Rust) | — |
+| AI | openai (npm) + fetch | — |
 | 存储加密 | tauri-plugin-store | v2 |
 
 ### Tauri 插件
@@ -111,8 +111,8 @@ src/
 | **导入导出** | 100% | Markdown 双向导入导出，文件对话框集成 |
 | **外部文件引用** | 100% | 直接读写外部 .md 文件 |
 | **搜索** | 100% | 基于 Fuse.js 实现模糊搜索，支持相关性排序和关键词高亮 |
-| **AI 客户端** | 85% | 支持 OpenAI 风格 API 配置与调用，可对笔记生成智能摘要 |
-| **AI 面板** | 0% | `src/components/AiPanel/` 不存在 |
+| **AI 客户端** | 100% | 支持用户自定义 API Key，可对笔记内容进行 AI 总结 |
+| **AI 面板** | 100% | 模态框展示总结结果，支持复制到剪贴板 |
 | **Markdown→PDF** | 0% | `src/core/markdown-to-pdf.ts` 不存在，无 PDF 库 |
 | **图谱关系** | 85% | 支持 2D/3D 切换，实现星团效果（引用计数影响节点引力） |
 | **移动端** | 0% | 仅 lib.rs 有 `#[cfg_attr(mobile)]` 声明，无实际适配 |
