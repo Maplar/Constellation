@@ -50,7 +50,8 @@ import type { CategoryGroup } from "../modules/shared/utils/noteUtils";
 import { useNoteStore } from "../modules/notes/stores/useNoteStore";
 import { SearchBar } from "../modules/notes/components/SearchBar";
 import { highlightText } from "../modules/shared/utils/highlightUtils";
-import { summarizeNote } from "../modules/settings/ai";
+import { summarizeNote } from "../modules/notes/services/aiService";
+import { loadAiSettings } from "../modules/settings/ai";
 import {
   noteContextMenuItems,
   type NoteContextMenuAction,
@@ -385,7 +386,15 @@ export function MainWindow({
     setAiError(null);
     setAiResult(null);
     try {
-      const summary = await summarizeNote(content);
+      const config = await loadAiSettings();
+      if (!config.apiKey) {
+        throw new Error("请先在设置中配置 AI API Key");
+      }
+      const summary = await summarizeNote(content, {
+        apiKey: config.apiKey,
+        baseURL: config.baseUrl,
+        model: config.model,
+      });
       setAiResult(summary);
     } catch (error) {
       setAiError(String(error));
