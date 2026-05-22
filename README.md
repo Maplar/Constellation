@@ -4,7 +4,7 @@
 
 星座是一款基于 Tauri 2 + React 构建的轻量、优雅、现代化的本地便签工具。
 
-> 本仓库为二次开发版本，新增分类管理、多窗口池、自动保存、外部文件引用、AI 总结等功能，并规划了图谱关系、PDF 导出等模块。
+> 本仓库为二次开发版本，新增分类管理、多窗口池、自动保存、外部文件引用、AI 总结、PDF 导出等功能，并规划了图谱关系升级等模块。
 
 ## 功能特性
 
@@ -22,6 +22,7 @@
 - **3D 图谱与星团效果** — 支持 2D/3D 切换，引用越多的笔记越靠近中心，形成星团布局。
 - **搜索增强** — 基于 Fuse.js 的模糊搜索，支持标题、内容、分类实时过滤及关键词高亮。
 - **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储。
+- **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页。
 
 ## 技术架构
 
@@ -38,6 +39,7 @@
 | 测试 | Vitest | ^4.0.0 |
 | 状态管理 | Zustand | ^5.0.13 |
 | Markdown | react-markdown + remark-gfm + remark-wiki-link | — |
+| PDF 导出 | html2pdf.js | ^0.14.0 |
 | 可视化 | d3-force（2D 力导向图谱）+ d3-force-3d + Three.js（3D 星团图谱） | — |
 | 搜索 | Fuse.js | ^7.3.0 |
 | AI | openai (npm) + fetch | — |
@@ -113,7 +115,7 @@ src/
 | **搜索** | 100% | 基于 Fuse.js 实现模糊搜索，支持相关性排序和关键词高亮 |
 | **AI 客户端** | 100% | 支持用户自定义 API Key，可对笔记内容进行 AI 总结 |
 | **AI 面板** | 100% | 模态框展示总结结果，支持复制到剪贴板 |
-| **Markdown→PDF** | 0% | `src/core/markdown-to-pdf.ts` 不存在，无 PDF 库 |
+| **Markdown→PDF** | 100% | 基于 html2pdf.js 实现，支持样式保留和分页 |
 | **图谱关系** | 85% | 支持 2D/3D 切换，实现星团效果（引用计数影响节点引力） |
 | **移动端** | 0% | 仅 lib.rs 有 `#[cfg_attr(mobile)]` 声明，无实际适配 |
 | **平台抽象层** | 0% | `src/platforms/desktop.ts` 和 `mobile.ts` 不存在 |
@@ -138,7 +140,7 @@ floral-notepaper/
 │       ├── notes/                    # 笔记管理模块
 │       │   ├── components/           # MainWindow, MarkdownPreview, ForceGraph2D, GraphView
 │       │   ├── stores/               # Zustand store（useNoteStore.ts）
-│       │   ├── services/             # 搜索服务（searchService.ts）
+│       │   ├── services/             # 搜索服务（searchService.ts）、AI 服务（aiService.ts）、PDF 导出（pdfExportService.ts）
 │       │   ├── hooks/                # useGraphData, useNotes, useDebounce
 │       │   ├── api/                  # 笔记 CRUD + 导入导出 API
 │       │   ├── linkParser.ts         # Wiki-Link 解析器

@@ -51,6 +51,8 @@ import { useNoteStore } from "../modules/notes/stores/useNoteStore";
 import { SearchBar } from "../modules/notes/components/SearchBar";
 import { highlightText } from "../modules/shared/utils/highlightUtils";
 import { summarizeNote } from "../modules/notes/services/aiService";
+import { exportToPDF, pdfFileName } from "../modules/notes/services/pdfExportService";
+import { createRoot } from "react-dom/client";
 import { loadAiSettings } from "../modules/settings/ai";
 import { AiSummaryModal } from "../modules/notes/components/AiSummaryModal";
 import {
@@ -287,6 +289,7 @@ export function MainWindow({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   const selectedNote = useMemo(
@@ -403,6 +406,44 @@ export function MainWindow({
       setAiLoading(false);
     }
   }, [content]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!content.trim()) {
+      setErrorMessage("笔记内容为空，无法导出 PDF");
+      return;
+    }
+
+    setExportingPdf(true);
+    setErrorMessage(null);
+
+    const filename = pdfFileName(title || selectedNote?.title || "无标题笔记");
+
+    const container = document.createElement("div");
+    container.style.cssText =
+      "position:absolute;left:0;top:-99999px;width:794px;visibility:visible;";
+    document.body.appendChild(container);
+
+    try {
+      const root = createRoot(container);
+      root.render(
+        <MarkdownPreview content={content} fontSize={14} />,
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      await exportToPDF(container, filename);
+    } catch (err) {
+      setErrorMessage(
+        "PDF 导出失败：" +
+          (err instanceof Error ? err.message : String(err)),
+      );
+    } finally {
+      setExportingPdf(false);
+      if (container.parentNode) {
+        document.body.removeChild(container);
+      }
+    }
+  }, [content, title, selectedNote]);
 
   const loadExternalFile = useCallback(async (filePath: string) => {
     setErrorMessage(null);
@@ -1688,6 +1729,23 @@ export function MainWindow({
                             <span className="animate-pulse">✦</span>
                           ) : (
                             <span>✦ AI</span>
+                          )}
+                        </button>
+                        <button
+                          title="导出 PDF"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => void handleExportPdf()}
+                          disabled={exportingPdf}
+                          className={`text-[10px] px-1.5 h-6 flex items-center justify-center rounded transition-all cursor-pointer ${
+                            exportingPdf
+                              ? "text-ink-ghost/40 cursor-wait"
+                              : "text-ink-ghost hover:text-ink-faint hover:bg-paper-warm"
+                          }`}
+                        >
+                          {exportingPdf ? (
+                            <span className="animate-pulse">⏳</span>
+                          ) : (
+                            <span>PDF</span>
                           )}
                         </button>
                       </div>
