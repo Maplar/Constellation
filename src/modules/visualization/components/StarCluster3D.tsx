@@ -8,17 +8,15 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import * as d3Force3d from "d3-force-3d";
 import type { GraphNode, GraphEdge } from "../../shared/types/notes";
-import { getCategoryColor } from "../../visualization/utils/colorMap";
+import { getCategoryColor } from "../utils/colorMap";
+import { useNoteStore } from "../../notes/stores/useNoteStore";
+import { useGraphStore } from "../stores/useGraphStore";
+import { useVisibility } from "../hooks/useVisibility";
 
-interface ForceGraph3DProps {
+interface StarCluster3DProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
-  selectedNoteId?: string | null;
-  onNodeClick?: (noteId: string) => void;
-  onNodeHover?: (nodeId: string | null) => void;
   maxNodes?: number;
-  simplified?: boolean;
-  categoryMap?: Map<string, string>;
 }
 
 interface SimNode3D extends d3Force3d.SimulationNodeDatum {
@@ -57,7 +55,7 @@ function resolveThemeColors(): {
       bg: "#0d1117",
       lineColor: 0x555555,
       lightColor: 0xffffff,
-      ambientColor: 0x888888,
+      ambientColor: 0x666666,
     };
   const theme = document.documentElement.getAttribute("data-theme");
   const isDark = theme === "dark";
@@ -65,24 +63,21 @@ function resolveThemeColors(): {
     bg: isDark ? "#0d1117" : "#1a1a2e",
     lineColor: isDark ? 0x444455 : 0x666677,
     lightColor: isDark ? 0xcccccc : 0xffffff,
-    ambientColor: isDark ? 0x666666 : 0x888888,
+    ambientColor: isDark ? 0x555555 : 0x777777,
   };
 }
 
 const MATERIAL_CACHE = new Map<string, THREE.MeshPhongMaterial>();
 
-function getCachedMaterial(
-  color: string,
-  opacity: number,
-): THREE.MeshPhongMaterial {
+function getCachedMaterial(color: string, opacity: number): THREE.MeshPhongMaterial {
   const key = `${color}-${opacity}`;
   let mat = MATERIAL_CACHE.get(key);
   if (!mat) {
     const c = new THREE.Color(color);
     mat = new THREE.MeshPhongMaterial({
       color: c,
-      emissive: c.clone().multiplyScalar(0.3),
-      shininess: 40,
+      emissive: c.clone().multiplyScalar(0.35),
+      shininess: 50,
       transparent: true,
       opacity,
     });
@@ -98,24 +93,14 @@ function mapNodeSize(val: number, maxVal: number): number {
   return minSize + (val / maxVal) * (maxSize - minSize);
 }
 
-export function ForceGraph3D({
-  nodes,
-  edges,
-  selectedNoteId,
-  onNodeClick,
-  onNodeHover,
-  maxNodes,
-  simplified = false,
-  categoryMap,
-}: ForceGraph3DProps) {
+export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DProps) {
+  const [visibilityRef, isVisible] = useVisibility();
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-  const simRef = useRef<d3Force3d.Simulation<SimNode3D, SimLink3D> | null>(
-    null,
-  );
+  const simRef = useRef<d3Force3d.Simulation<SimNode3D, SimLink3D> | null>(null);
   const nodeMeshesRef = useRef<Map<string, THREE.Mesh>>(new Map());
   const edgeLinesRef = useRef<THREE.Line[]>([]);
   const animFrameRef = useRef<number>(0);
@@ -125,11 +110,20 @@ export function ForceGraph3D({
 
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
 
+  const { notesMetadata, selectNote } = useNoteStore();
+  const { selectNode } = useGraphStore();
+
+  const categoryMap = new Map<string, string>();
+  for (const meta of notesMetadata) {
+    categoryMap.set(meta.id, meta.category || "未分类");
+  }
+
   const handleNodeClick = useCallback(
     (noteId: string) => {
-      onNodeClick?.(noteId);
+      selectNote(noteId);
+      selectNode(noteId);
     },
-    [onNodeClick],
+    [selectNote, selectNode],
   );
 
   useEffect(() => {
@@ -210,9 +204,9 @@ export function ForceGraph3D({
       id: n.id,
       label: n.label,
       val: n.val,
-      color: getCategoryColor(categoryMap?.get(n.noteId) || "未分类"),
+      color: getCategoryColor(categoryMap.get(n.noteId) || "未分类"),
       noteId: n.noteId,
-      category: categoryMap?.get(n.noteId) || "未分类",
+      category: categoryMap.get(n.noteId) || "未分类",
       x: (Math.random() - 0.5) * 300,
       y: (Math.random() - 0.5) * 300,
       z: (Math.random() - 0.5) * 300,
@@ -224,30 +218,30 @@ export function ForceGraph3D({
       simNodeMapRef.current.set(sn.id, sn);
     }
 
-    const nodeGeometry = simplified
-      ? new THREE.SphereGeometry(1, 16, 16)
-      : new THREE.SphereGeometry(1, 32, 32);
+    const nodeGeometry = new THREE.SphereGeometry(1, 32, 32);
 
     for (const simNode of simNodes) {
       const scale = mapNodeSize(simNode.val, maxVal);
 
-      const material = getCachedMaterial(
-        simNode.color,
-        1,
-      );
+      const material = getCachedMaterial(simNode.color, 1);
 
       const mesh = new THREE.Mesh(nodeGeometry, material);
       mesh.scale.setScalar(scale);
       mesh.position.set(simNode.x ?? 0, simNode.y ?? 0, simNode.z ?? 0);
-      mesh.userData = { noteId: simNode.noteId, label: simNode.label, category: simNode.category, val: simNode.val };
+      mesh.userData = {
+        noteId: simNode.noteId,
+        label: simNode.label,
+        category: simNode.category,
+        val: simNode.val,
+      };
       mesh.castShadow = true;
       mesh.receiveShadow = true;
 
-      if (!simplified && simNode.val > maxVal * 0.2) {
+      if (simNode.val > maxVal * 0.15) {
         const pointLight = new THREE.PointLight(
           new THREE.Color(simNode.color),
-          simNode.val / maxVal * 0.5,
-          100,
+          (simNode.val / maxVal) * 0.6,
+          120,
         );
         mesh.add(pointLight);
       }
@@ -273,7 +267,7 @@ export function ForceGraph3D({
       const lineMat = new THREE.LineBasicMaterial({
         color: colors.lineColor,
         transparent: true,
-        opacity: simplified ? 0.15 : 0.25,
+        opacity: 0.2,
       });
       const line = new THREE.Line(lineGeom, lineMat);
       line.userData = { source: re.source, target: re.target };
@@ -288,9 +282,6 @@ export function ForceGraph3D({
       value: e.value,
     }));
 
-    const chargeStrength = simplified ? -100 : -200;
-    const centerStrength = simplified ? 0.05 : 0.02;
-
     const sim = d3Force3d
       .forceSimulation<SimNode3D>(simNodes)
       .force(
@@ -301,29 +292,26 @@ export function ForceGraph3D({
           .distance(80)
           .strength((d: SimLink3D) => Math.min(0.4, d.value * 0.15)),
       )
-      .force("charge", d3Force3d.forceManyBody<SimNode3D>().strength(chargeStrength))
+      .force("charge", d3Force3d.forceManyBody<SimNode3D>().strength(-150))
       .force(
         "x",
         d3Force3d
           .forceX<SimNode3D>(0)
-          .strength((d: SimNode3D) => (d.val / maxVal) * 0.15),
+          .strength((d: SimNode3D) => (d.val / maxVal) * 0.2),
       )
       .force(
         "y",
         d3Force3d
           .forceY<SimNode3D>(0)
-          .strength((d: SimNode3D) => (d.val / maxVal) * 0.15),
+          .strength((d: SimNode3D) => (d.val / maxVal) * 0.2),
       )
       .force(
         "z",
         d3Force3d
           .forceZ<SimNode3D>(0)
-          .strength((d: SimNode3D) => (d.val / maxVal) * 0.15),
+          .strength((d: SimNode3D) => (d.val / maxVal) * 0.2),
       )
-      .force(
-        "center",
-        d3Force3d.forceCenter<SimNode3D>(0, 0, 0).strength(centerStrength),
-      )
+      .force("center", d3Force3d.forceCenter<SimNode3D>(0, 0, 0).strength(0.03))
       .force(
         "collide",
         d3Force3d
@@ -346,18 +334,8 @@ export function ForceGraph3D({
           const tgtMesh = nodeMeshesRef.current.get(tgtId);
           if (srcMesh && tgtMesh) {
             const positions = line.geometry.attributes.position;
-            positions.setXYZ(
-              0,
-              srcMesh.position.x,
-              srcMesh.position.y,
-              srcMesh.position.z,
-            );
-            positions.setXYZ(
-              1,
-              tgtMesh.position.x,
-              tgtMesh.position.y,
-              tgtMesh.position.z,
-            );
+            positions.setXYZ(0, srcMesh.position.x, srcMesh.position.y, srcMesh.position.z);
+            positions.setXYZ(1, tgtMesh.position.x, tgtMesh.position.y, tgtMesh.position.z);
             positions.needsUpdate = true;
           }
         }
@@ -378,8 +356,7 @@ export function ForceGraph3D({
       if (!container || !camera) return;
       const rect = container.getBoundingClientRect();
       pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointerRef.current.y =
-        -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      pointerRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycasterRef.current.setFromCamera(pointerRef.current, camera);
       const meshes = Array.from(nodeMeshesRef.current.values());
@@ -396,8 +373,7 @@ export function ForceGraph3D({
       if (!container || !camera) return;
       const rect = container.getBoundingClientRect();
       pointerRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointerRef.current.y =
-        -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      pointerRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycasterRef.current.setFromCamera(pointerRef.current, camera);
       const meshes = Array.from(nodeMeshesRef.current.values());
@@ -415,19 +391,18 @@ export function ForceGraph3D({
         const y = ((-screenPos.y + 1) / 2) * rect.height;
 
         setHoverInfo({ nodeId: noteId, label, category, val, x, y });
-        onNodeHover?.(noteId);
         renderer.domElement.style.cursor = "pointer";
       } else {
         setHoverInfo(null);
-        onNodeHover?.(null);
         renderer.domElement.style.cursor = "default";
       }
     };
     renderer.domElement.addEventListener("pointermove", handlePointerMove);
 
+    let isAnimating = true;
     function animate() {
       animFrameRef.current = requestAnimationFrame(animate);
-      if (!isVisible) return;
+      if (!isAnimating) return;
       if (controlsRef.current) controlsRef.current.update();
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
@@ -435,16 +410,9 @@ export function ForceGraph3D({
     }
     animate();
 
-    let isVisible = true;
-    const visibilityObserver = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          isVisible = entry.isIntersecting;
-        }
-      },
-      { threshold: 0.1 },
-    );
-    visibilityObserver.observe(container);
+    const visibilityCheckInterval = setInterval(() => {
+      isAnimating = isVisible;
+    }, 500);
 
     const themeObserver = new MutationObserver(() => {
       if (sceneRef.current) {
@@ -461,8 +429,8 @@ export function ForceGraph3D({
     });
 
     return () => {
+      clearInterval(visibilityCheckInterval);
       cancelAnimationFrame(animFrameRef.current);
-      visibilityObserver.disconnect();
       sim.stop();
       if (controlsRef.current) {
         controlsRef.current.dispose();
@@ -484,11 +452,16 @@ export function ForceGraph3D({
       simNodeMapRef.current.clear();
       setHoverInfo(null);
     };
-  }, [nodes, edges, selectedNoteId, maxNodes, simplified, handleNodeClick, onNodeHover]);
+  }, [nodes, edges, maxNodes, handleNodeClick, isVisible]);
 
   return (
     <div
-      ref={containerRef}
+      ref={(el) => {
+        containerRef.current = el;
+        if (visibilityRef) {
+          (visibilityRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+        }
+      }}
       className="w-full h-full min-h-0 overflow-hidden relative"
     >
       {hoverInfo && (
@@ -526,11 +499,7 @@ export function ForceGraph3D({
 
 function disposeScene(scene: THREE.Scene): void {
   scene.traverse((obj) => {
-    if (
-      obj instanceof THREE.Mesh ||
-      obj instanceof THREE.Line ||
-      obj instanceof THREE.Points
-    ) {
+    if (obj instanceof THREE.Mesh || obj instanceof THREE.Line || obj instanceof THREE.Points) {
       obj.geometry?.dispose();
       const mat = obj.material;
       if (Array.isArray(mat)) {

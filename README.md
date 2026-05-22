@@ -18,12 +18,14 @@
 - **托盘菜单** — 关闭到托盘、开机自启、快速记录
 - **沉浸式标题栏** — 自绘窗口控制区域，与整体 UI 融合
 - **Wiki-Link 解析** — 支持 `[[笔记标题]]` 和 `[[笔记标题|别名]]` 语法，自动解析笔记间引用关系
-- **2D 力导向图谱** — 基于 d3-force 的笔记关系图谱可视化，节点大小反映被引次数，支持缩放/拖拽/点击跳转
-- **3D 图谱与星团效果** — 支持 2D/3D 切换，引用越多的笔记越靠近中心，形成星团布局。
-- **搜索增强** — 基于 Fuse.js 的模糊搜索，支持标题、内容、分类实时过滤及关键词高亮。
-- **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储。
-- **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页。
-- **跨平台适配** — 支持 Windows/macOS/Linux 桌面端与 Android/iOS 移动端，UI 根据平台自动调整（底部 TabBar、触控优化、侧栏抽屉）。
+- **文件关系图谱** — 基于 d3-force 的 2D/3D 笔记关系图谱，节点大小按引用次数映射，颜色按分类区分，支持搜索高亮和点击跳转
+- **思维导图星系** — 将笔记分类可视化为"恒星"，笔记为"行星"围绕分类运行，Wiki-Link 引用以虚线连接，支持点击分类聚焦
+- **引用星团图** — 3D 星团效果，引用越多的笔记越靠近中心，节点带分类色彩和点光源辉光，hover 显示详情浮层
+- **图谱仪表盘** — 同时展示三种可视化模块（关系图 + 星团 + 星系），带统计摘要栏和最大化跳转
+- **搜索增强** — 基于 Fuse.js 的模糊搜索，支持标题、内容、分类实时过滤及关键词高亮
+- **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储
+- **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页
+- **跨平台适配** — 支持 Windows/macOS/Linux 桌面端与 Android/iOS 移动端，UI 根据平台自动调整（底部 TabBar、触控优化、侧栏抽屉）
 
 ## 技术架构
 
@@ -117,7 +119,10 @@ src/
 | **AI 客户端** | 100% | 支持用户自定义 API Key，可对笔记内容进行 AI 总结 |
 | **AI 面板** | 100% | 模态框展示总结结果，支持复制到剪贴板 |
 | **Markdown→PDF** | 100% | 基于 html2pdf.js 实现，支持样式保留和分页 |
-| **图谱关系** | 85% | 支持 2D/3D 切换，实现星团效果（引用计数影响节点引力） |
+| **图谱仪表盘** | 100% | 侧边栏 + 四种模式（关系图/星系/星团/仪表盘），2D/3D 切换，搜索高亮，统计面板 |
+| **文件关系图谱** | 100% | 2D/3D 力导向图，节点大小/颜色映射，hover 高亮路径，曲线边 |
+| **思维导图星系** | 100% | 分类恒星 + 笔记行星布局，d3-force 模拟，点击聚焦分类 |
+| **引用星团图** | 100% | Three.js 3D 星团，分类色彩点光源，hover 浮层，节点详情面板 |
 | **移动端** | 85% | 底部 TabBar、侧栏抽屉适配、触控优化、核心功能可用（磁贴/便签窗口暂不适用） |
 | **平台抽象层** | 100% | `src/modules/shared/platform/` 提供平台检测、usePlatform Hook、响应式尺寸订阅 |
 
@@ -161,7 +166,11 @@ floral-notepaper/
 │       │   ├── components/           # SettingsPanel
 │       │   ├── api.ts, theme.ts, tileColor.ts
 │       │   └── types.ts
-│       └── visualization/            # 可视化模块（预留 3D 升级）
+│       └── visualization/            # 可视化模块
+│           ├── components/           # GraphDashboard, GraphSidebar, RelationGraph, MindMapGalaxy, StarCluster3D, DashboardOverview
+│           ├── stores/               # useGraphStore（图谱状态管理）
+│           ├── hooks/                # useGalaxyLayout（星系布局）, useVisibility（可见性检测）
+│           └── utils/                # colorMap（分类颜色映射）
 ├── src-tauri/                        # Rust 后端
 ├── package.json
 ├── tsconfig.json
