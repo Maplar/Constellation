@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  NSIS Header Image - 星座安装向导顶部横幅
+  尺寸: 150 × 57 像素
+  格式: 需转换为 24位 BMP (不支持透明度)
+-->
+<svg width="150" height="57" viewBox="0 0 150 57" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景 -->
+  <rect width="150" height="57" fill="#f6f3ec"/>
+  
+  <!-- 底部分隔线 -->
+  <line x1="0" y1="55" x2="150" y2="55" stroke="#e5e1d8" stroke-width="1"/>
+  
+  <!-- 项目名 - 楷体加粗模拟毛笔风格 -->
+  <text x="16" y="36" font-family="KaiTi, STKaiti, serif" font-size="22" font-weight="bold" fill="#1a1a1a">星座</text>
+  
+  <!-- 篆刻印章装饰 -->
+  <rect x="108" y="8" width="30" height="30" rx="2" fill="#c04040"/>
+  <rect x="110" y="10" width="26" height="26" rx="1" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/>
+  <text x="123" y="30" font-family="KaiTi, STKaiti, serif" font-size="16" fill="white" text-anchor="middle" font-weight="bold">星</text>
+  
+  <!-- 装饰星点 -->
+  <circle cx="85" cy="15" r="1.5" fill="#4a7a6b" opacity="0.4"/>
+  <circle cx="95" cy="42" r="1" fill="#4a7a6b" opacity="0.3"/>
+</svg>

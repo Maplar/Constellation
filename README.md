@@ -25,6 +25,7 @@
 - **搜索增强** — 基于 Fuse.js 的模糊搜索，支持标题、内容、分类实时过滤及关键词高亮
 - **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储
 - **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页
+- **品牌安装界面** — 基于 NSIS 的中国风安装/卸载向导，毛笔字体标题、水墨装饰、篆刻印章，与应用 UI 颜色系统统一
 - **跨平台适配** — 支持 Windows/macOS/Linux 桌面端与 Android/iOS 移动端，UI 根据平台自动调整（底部 TabBar、触控优化、侧栏抽屉）
 
 ## 技术架构
@@ -57,6 +58,18 @@
 | `tauri-plugin-single-instance` | 单实例限制 + CLI 文件参数转发 |
 | `tauri-plugin-autostart` | 开机自启动（通过 desktop.rs） |
 | `tauri-plugin-global-shortcut` | 全局快捷键注册（通过 desktop.rs） |
+
+### 安装程序
+
+安装界面采用 V5 中国风雅韵风格，资源文件位于 `src-tauri/icons/nsis/`。
+
+| 资源 | 文件 | 说明 |
+|------|------|------|
+| 顶部横幅 | `header.bmp` | 150×57 像素，项目名 + 篆刻印章装饰 |
+| 侧边栏 | `sidebar.bmp` | 164×314 像素，水墨山水 + 印章 + slogan |
+| 安装图标 | `installer-icon.ico` | 篆刻印章风格的安装程序图标 |
+
+SVG 源文件和转换说明见 `src-tauri/icons/nsis/CONVERT.md`。
 
 ### 架构概览
 
