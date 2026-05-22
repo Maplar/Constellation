@@ -48,6 +48,7 @@ import {
 } from "../modules/shared/utils/noteUtils";
 import type { CategoryGroup } from "../modules/shared/utils/noteUtils";
 import { useNoteStore } from "../modules/notes/stores/useNoteStore";
+import { usePlatform } from "../modules/shared/platform/usePlatform";
 import { SearchBar } from "../modules/notes/components/SearchBar";
 import { highlightText } from "../modules/shared/utils/highlightUtils";
 import { summarizeNote } from "../modules/notes/services/aiService";
@@ -291,6 +292,8 @@ export function MainWindow({
   const [aiError, setAiError] = useState<string | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+
+  const { isMobile } = usePlatform();
 
   const selectedNote = useMemo(
     () => notes.find((note) => note.id === selectedId) ?? null,
@@ -1029,88 +1032,115 @@ export function MainWindow({
                 {errorMessage}
               </span>
             )}
-            <button
-              onClick={() => void handleOpenNotepad()}
-              className="w-10 h-11 flex items-center justify-center text-ink-ghost hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer"
-              title="快捷便签"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            {isMobile && (
+              <button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="w-10 h-11 flex items-center justify-center text-ink-ghost hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer"
+                title="笔记列表"
               >
-                <path d="M4 4h16v14H7l-3 3V4z" />
-                <path d="M8 9h8M8 13h5" />
-              </svg>
-            </button>
-            <button
-              onClick={() => void handleOpenSettings()}
-              className="w-10 h-11 flex items-center justify-center text-ink-ghost hover:text-ink-faint hover:bg-paper-warm transition-all cursor-pointer"
-              title="设置"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-            </button>
-
-            <div className="w-px h-4 bg-paper-deep/30 mx-0.5" />
-
-            <button
-              onClick={handleMinimize}
-              className="w-11 h-11 flex items-center justify-center text-ink-ghost hover:text-ink-soft hover:bg-paper-warm transition-all cursor-pointer"
-              title="最小化"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12">
-                <rect x="1" y="5.5" width="10" height="1" fill="currentColor" rx="0.5" />
-              </svg>
-            </button>
-            <button
-              onClick={handleMaximize}
-              className="w-11 h-11 flex items-center justify-center text-ink-ghost hover:text-ink-soft hover:bg-paper-warm transition-all cursor-pointer"
-              title={isMaximized ? "还原" : "最大化"}
-            >
-              {isMaximized ? (
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <path d="M3 5H2V2a1 1 0 0 1 1-1h5v1" />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
-                  <rect x="1.5" y="1.5" width="9" height="9" rx="1.5" />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={handleClose}
-              className="w-11 h-11 flex items-center justify-center text-ink-ghost hover:text-red-500 hover:bg-danger-bg transition-all cursor-pointer"
-              title="关闭"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M2 2l8 8M10 2l-8 8" />
-              </svg>
-            </button>
+              </button>
+            )}
+            {!isMobile && (
+              <>
+                <button
+                  onClick={() => void handleOpenNotepad()}
+                  className="w-10 h-11 flex items-center justify-center text-ink-ghost hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer"
+                  title="快捷便签"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 4h16v14H7l-3 3V4z" />
+                    <path d="M8 9h8M8 13h5" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => void handleOpenSettings()}
+                  className="w-10 h-11 flex items-center justify-center text-ink-ghost hover:text-ink-faint hover:bg-paper-warm transition-all cursor-pointer"
+                  title="设置"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 12h4" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleMinimize}
+                  className="w-11 h-11 flex items-center justify-center text-ink-ghost hover:text-ink-soft hover:bg-paper-warm transition-all cursor-pointer"
+                  title="最小化"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+                    <path d="M2 6h8" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleMaximize}
+                  className="w-11 h-11 flex items-center justify-center text-ink-ghost hover:text-ink-soft hover:bg-paper-warm transition-all cursor-pointer"
+                  title={isMaximized ? "还原" : "最大化"}
+                >
+                  {isMaximized ? (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+                      <rect x="3" y="3" width="7" height="7" rx="1" />
+                      <path d="M3 5H2V2a1 1 0 0 1 1-1h5v1" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+                      <rect x="1.5" y="1.5" width="9" height="9" rx="1.5" />
+                    </svg>
+                  )}
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="w-11 h-11 flex items-center justify-center text-ink-ghost hover:text-red-500 hover:bg-danger-bg transition-all cursor-pointer"
+                  title="关闭"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M2 2l8 8M10 2l-8 8" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 relative">
+          {/* Mobile sidebar backdrop */}
+          {isMobile && !sidebarCollapsed && (
+            <div
+              className="fixed inset-0 bg-black/30 z-30 animate-fade-in"
+              onClick={() => setSidebarCollapsed(true)}
+              aria-hidden="true"
+            />
+          )}
           <div
             className={`border-r border-paper-deep/30 bg-paper/40 flex flex-col shrink-0 transition-all duration-[600ms] ${
-              sidebarCollapsed ? "w-0 overflow-hidden" : "w-[280px]"
+              isMobile
+                ? sidebarCollapsed
+                  ? "w-0 overflow-hidden"
+                  : "fixed inset-y-0 left-0 w-4/5 max-w-[320px] z-40 shadow-xl animate-slide-in-left border-r"
+                : sidebarCollapsed
+                  ? "w-0 overflow-hidden"
+                  : "w-[280px]"
             }`}
           >
             <SearchBar resultCount={filteredNotes.length} />
@@ -1697,7 +1727,7 @@ export function MainWindow({
                           : "w-full"
                       }`}
                     >
-                      <div className="flex items-center gap-0.5 px-4 pt-2 pb-1 shrink-0">
+                       <div className={`flex items-center px-4 pt-2 pb-1 shrink-0 ${isMobile ? 'gap-1.5 flex-wrap' : 'gap-0.5'}`}>
                         {toolbarButtons.map((button) => (
                           <button
                             key={button.label}
@@ -1708,27 +1738,27 @@ export function MainWindow({
                                 applyFormat(contentRef.current, button.action, setContent, markDirty);
                               }
                             }}
-                            className={`w-6 h-6 flex items-center justify-center rounded text-[11px] text-ink-ghost hover:text-ink-faint hover:bg-paper-warm transition-all cursor-pointer ${button.style}`}
+                            className={`${isMobile ? 'min-w-9 min-h-9 text-[13px]' : 'w-6 h-6 text-[11px]'} flex items-center justify-center rounded text-ink-ghost hover:text-ink-faint hover:bg-paper-warm active:bg-paper-warm/60 transition-all cursor-pointer ${button.style}`}
                           >
                             {button.label}
                           </button>
                         ))}
-                        <span className="w-px h-4 bg-paper-deep/40 mx-1" />
+                        {!isMobile && <span className="w-px h-4 bg-paper-deep/40 mx-1" />}
                         <button
                           title="AI 总结"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => void handleAiSummarize()}
                           disabled={aiLoading}
-                          className={`text-[10px] px-1.5 h-6 flex items-center justify-center rounded transition-all cursor-pointer ${
+                          className={`${isMobile ? 'min-w-9 min-h-9 text-[12px] px-2' : 'text-[10px] px-1.5 h-6'} flex items-center justify-center rounded transition-all cursor-pointer ${
                             aiLoading
                               ? "text-bamboo/50 cursor-wait"
-                              : "text-bamboo hover:text-bamboo-light hover:bg-bamboo-mist/60"
+                              : "text-bamboo hover:text-bamboo-light hover:bg-bamboo-mist/60 active:bg-bamboo-mist/40"
                           }`}
                         >
                           {aiLoading ? (
                             <span className="animate-pulse">✦</span>
                           ) : (
-                            <span>✦ AI</span>
+                            <span>{isMobile ? '✦ AI' : '✦ AI'}</span>
                           )}
                         </button>
                         <button
@@ -1736,10 +1766,10 @@ export function MainWindow({
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => void handleExportPdf()}
                           disabled={exportingPdf}
-                          className={`text-[10px] px-1.5 h-6 flex items-center justify-center rounded transition-all cursor-pointer ${
+                          className={`${isMobile ? 'min-w-9 min-h-9 text-[12px] px-2' : 'text-[10px] px-1.5 h-6'} flex items-center justify-center rounded transition-all cursor-pointer ${
                             exportingPdf
                               ? "text-ink-ghost/40 cursor-wait"
-                              : "text-ink-ghost hover:text-ink-faint hover:bg-paper-warm"
+                              : "text-ink-ghost hover:text-ink-faint hover:bg-paper-warm active:bg-paper-warm/60"
                           }`}
                         >
                           {exportingPdf ? (

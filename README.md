@@ -23,6 +23,7 @@
 - **搜索增强** — 基于 Fuse.js 的模糊搜索，支持标题、内容、分类实时过滤及关键词高亮。
 - **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储。
 - **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页。
+- **跨平台适配** — 支持 Windows/macOS/Linux 桌面端与 Android/iOS 移动端，UI 根据平台自动调整（底部 TabBar、触控优化、侧栏抽屉）。
 
 ## 技术架构
 
@@ -117,8 +118,8 @@ src/
 | **AI 面板** | 100% | 模态框展示总结结果，支持复制到剪贴板 |
 | **Markdown→PDF** | 100% | 基于 html2pdf.js 实现，支持样式保留和分页 |
 | **图谱关系** | 85% | 支持 2D/3D 切换，实现星团效果（引用计数影响节点引力） |
-| **移动端** | 0% | 仅 lib.rs 有 `#[cfg_attr(mobile)]` 声明，无实际适配 |
-| **平台抽象层** | 0% | `src/platforms/desktop.ts` 和 `mobile.ts` 不存在 |
+| **移动端** | 85% | 底部 TabBar、侧栏抽屉适配、触控优化、核心功能可用（磁贴/便签窗口暂不适用） |
+| **平台抽象层** | 100% | `src/modules/shared/platform/` 提供平台检测、usePlatform Hook、响应式尺寸订阅 |
 
 ## 项目结构
 
@@ -134,9 +135,10 @@ floral-notepaper/
 │   └── modules/                      # ★ 新模块化目录
 │       ├── shared/                   # 跨模块共享
 │       │   ├── types/                # 全局类型（notes.ts, settings.ts）
+│       │   ├── platform/             # 平台抽象层（types.ts, index.ts, usePlatform.ts）
 │       │   ├── hooks/                # 通用 hooks
 │       │   ├── utils/                # 通用工具（noteUtils.ts, highlightUtils.tsx）
-│       │   └── components/           # 通用 UI（ContextMenu, SlidingButtonGroup）
+│       │   └── components/           # 通用 UI（ContextMenu, SlidingButtonGroup, MobileTabBar, MobileBottomSheet）
 │       ├── notes/                    # 笔记管理模块
 │       │   ├── components/           # MainWindow, MarkdownPreview, ForceGraph2D, GraphView
 │       │   ├── stores/               # Zustand store（useNoteStore.ts）
