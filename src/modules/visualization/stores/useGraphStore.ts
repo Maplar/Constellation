@@ -10,10 +10,12 @@ export type DimensionMode = "2D" | "3D";
 
 export interface GraphParams {
   forceStrength: number;   // 0.1 ~ 2.0, 默认 1.0
+  orbitDistance: number;   // 星系展开距离 100 ~ 500, 默认 200
+  orbitDensity: boolean;   // 显示轨道线
+  showLinks: boolean;      // 显示 Wiki-Link 连线
   autoRotate: boolean;     // 3D 自动旋转
   glowIntensity: number;   // 0 ~ 1.0
-  showOrbits: boolean;     // 显示轨道线
-  showLinks: boolean;      // 显示 Wiki-Link 连线
+  particleCount: number;   // 粒子数量 100 ~ 1000
 }
 
 interface GraphState {
@@ -46,10 +48,12 @@ export const useGraphStore = create<GraphState>((set) => ({
   searchQuery: "",
   graphParams: {
     forceStrength: 1.0,
+    orbitDistance: 200,
+    orbitDensity: true,
+    showLinks: true,
     autoRotate: true,
     glowIntensity: 0.6,
-    showOrbits: true,
-    showLinks: true,
+    particleCount: 500,
   },
   activeFilters: [],
 

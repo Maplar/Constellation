@@ -123,42 +123,56 @@ function StatCard({ value, label }: { value: number | string; label: string }) {
   );
 }
 
-/* ── Category Distribution Panel ── */
+/* ── Category Distribution Donut Chart ── */
 function CategoryDistribution({ categories }: { categories: [string, number][] }) {
   const total = categories.reduce((sum, [, count]) => sum + count, 0);
-  const maxCount = Math.max(...categories.map(([, c]) => c), 1);
+  if (total === 0) return <div className="p-3 text-[11px]" style={{ color: "var(--color-ink-ghost)" }}>暂无数据</div>;
+
+  const cx = 80, cy = 80, r = 60, strokeWidth = 20;
+  const circumference = 2 * Math.PI * r;
+  let cumulativeOffset = 0;
 
   return (
-    <div className="p-3 space-y-2 h-full overflow-y-auto">
-      {categories.map(([cat, count]) => (
-        <div key={cat} className="flex items-center gap-2">
-          <span
-            className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-            style={{ backgroundColor: getCategoryColor(cat) }}
-          />
-          <span className="text-[11px] truncate w-16" style={{ color: "var(--color-ink-soft)" }}>
-            {cat}
-          </span>
-          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-paper-warm)" }}>
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${(count / maxCount) * 100}%`,
-                backgroundColor: getCategoryColor(cat),
-                opacity: 0.7,
-              }}
+    <div className="flex items-center gap-4 p-3 h-full">
+      <svg width={160} height={160} viewBox="0 0 160 160">
+        {/* Background ring */}
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-paper-warm)" strokeWidth={strokeWidth} />
+        {/* Category arcs */}
+        {categories.map(([cat, count]) => {
+          const fraction = count / total;
+          const dashLength = fraction * circumference;
+          const dashOffset = -cumulativeOffset * circumference;
+          cumulativeOffset += fraction;
+          return (
+            <circle
+              key={cat}
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke={getCategoryColor(cat)}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${dashLength} ${circumference - dashLength}`}
+              strokeDashoffset={dashOffset}
+              transform={`rotate(-90 ${cx} ${cy})`}
+              style={{ transition: "stroke-dasharray 0.5s ease" }}
             />
+          );
+        })}
+        {/* Center text */}
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="20" fontWeight="700" fill="var(--color-ink)">{total}</text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="11" fill="var(--color-ink-faint)">笔记</text>
+      </svg>
+      {/* Legend */}
+      <div className="space-y-1.5 flex-1 min-w-0">
+        {categories.map(([cat, count]) => (
+          <div key={cat} className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(cat) }} />
+            <span className="text-[11px] truncate flex-1" style={{ color: "var(--color-ink-soft)" }}>{cat}</span>
+            <span className="text-[11px] font-mono" style={{ color: "var(--color-ink-ghost)" }}>{count}</span>
           </div>
-          <span className="text-[11px] font-mono w-6 text-right" style={{ color: "var(--color-ink-ghost)" }}>
-            {count}
-          </span>
-        </div>
-      ))}
-      {total > 0 && (
-        <div className="text-[10px] pt-1" style={{ color: "var(--color-ink-ghost)" }}>
-          共 {total} 篇笔记，{categories.length} 个分类
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }

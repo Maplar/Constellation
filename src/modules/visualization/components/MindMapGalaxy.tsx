@@ -12,7 +12,7 @@ import { useGalaxyLayout, type GalaxyNode } from "../hooks/useGalaxyLayout";
 import { getMixedColor } from "../utils/colorMap";
 import { CanvasContainer } from "./shared/CanvasContainer";
 import { GalaxyToolbar } from "./MindMapGalaxy/GalaxyToolbar";
-import { renderStarNodes } from "./MindMapGalaxy/StarNode";
+import { renderStarNodes, startStarBreathingAnimation } from "./MindMapGalaxy/StarNode";
 import { renderPlanetNodes } from "./MindMapGalaxy/PlanetNode";
 import { renderOrbitRings } from "./MindMapGalaxy/OrbitRing";
 
@@ -138,9 +138,9 @@ export function MindMapGalaxy() {
     const config = { focusedCategory, searchQuery, matchIds, isDark };
 
     /* ── Orbit rings ── */
-    if (graphParams.showOrbits) {
+    if (graphParams.orbitDensity) {
       const categoryNodes = nodes.filter((n) => n.type === "category");
-      renderOrbitRings(g, categoryNodes, isDark);
+      renderOrbitRings(g, categoryNodes, isDark, graphParams.orbitDistance);
     }
 
     /* ── Links ── */
@@ -193,7 +193,25 @@ export function MindMapGalaxy() {
           return 0.25;
         })
         .attr("stroke-width", 1)
-        .attr("stroke-dasharray", "4,4");
+        .attr("stroke-dasharray", "4,4")
+        .attr("stroke-dashoffset", 0);
+
+    // Flow animation on dashed lines (stroke-dashoffset animation)
+    function animateLinkFlow() {
+      linkGroup
+        .selectAll<SVGLineElement, unknown>("line")
+        .transition()
+        .duration(2000)
+        .ease(d3.easeLinear)
+        .attr("stroke-dashoffset", -16)
+        .transition()
+        .duration(0)
+        .attr("stroke-dashoffset", 0)
+        .on("end", function () {
+          if (this.parentNode) animateLinkFlow();
+        });
+    }
+    animateLinkFlow();
     }
 
     /* ── Nodes ── */
@@ -215,6 +233,7 @@ export function MindMapGalaxy() {
 
     renderStarNodes(starSelection, config);
     renderPlanetNodes(planetSelection, config);
+    startStarBreathingAnimation(starSelection);
 
     /* ── Hover effects ── */
     nodeElements
@@ -265,7 +284,7 @@ export function MindMapGalaxy() {
     searchQuery,
     focusedCategory,
     handleNodeClick,
-    graphParams.showOrbits,
+    graphParams.orbitDensity,
     graphParams.showLinks,
   ]);
 

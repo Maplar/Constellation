@@ -3,10 +3,23 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
+import { useMemo } from "react";
 import { useGraphStore } from "../../stores/useGraphStore";
+import { useNoteStore } from "../../../notes/stores/useNoteStore";
 
-export function ClusterToolbar() {
+interface ClusterToolbarProps {
+  focusedCategory: string | null;
+  onFocusCategory: (cat: string | null) => void;
+}
+
+export function ClusterToolbar({ focusedCategory, onFocusCategory }: ClusterToolbarProps) {
   const { graphParams, updateGraphParams } = useGraphStore();
+  const { notesMetadata } = useNoteStore();
+
+  const categories = useMemo(() => {
+    const set = new Set(notesMetadata.map((n) => n.category || "未分类"));
+    return Array.from(set).sort();
+  }, [notesMetadata]);
 
   return (
     <>
@@ -25,9 +38,40 @@ export function ClusterToolbar() {
           max={100}
           value={Math.round(graphParams.glowIntensity * 100)}
           onChange={(e) => updateGraphParams({ glowIntensity: Number(e.target.value) / 100 })}
-          className="w-16 h-1 accent-[var(--color-bamboo)]"
+          className="w-16 h-1"
           style={{ accentColor: "var(--color-bamboo)" }}
         />
+      </div>
+      <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--color-ink-ghost)" }}>
+        <span>粒子</span>
+        <input
+          type="range"
+          min={100}
+          max={1000}
+          step={50}
+          value={graphParams.particleCount}
+          onChange={(e) => updateGraphParams({ particleCount: Number(e.target.value) })}
+          className="w-16 h-1"
+          style={{ accentColor: "var(--color-bamboo)" }}
+        />
+      </div>
+      <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--color-ink-ghost)" }}>
+        <span>聚焦:</span>
+        <select
+          value={focusedCategory || ""}
+          onChange={(e) => onFocusCategory(e.target.value || null)}
+          className="px-1.5 py-0.5 rounded text-[11px] border cursor-pointer"
+          style={{
+            backgroundColor: "var(--color-paper-warm)",
+            borderColor: "var(--color-paper-deep)",
+            color: "var(--color-ink-soft)",
+          }}
+        >
+          <option value="">全部</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
       </div>
       <div className="flex-1" />
     </>

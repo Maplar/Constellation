@@ -10,11 +10,23 @@ interface GraphToolbarProps {
 }
 
 export function GraphToolbar({ onReset }: GraphToolbarProps) {
-  const { dimensionMode, toggleDimension } = useGraphStore();
+  const { dimensionMode, toggleDimension, graphParams, updateGraphParams } = useGraphStore();
 
   return (
     <>
       <DimensionToggle value={dimensionMode} onChange={toggleDimension} />
+      <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--color-ink-ghost)" }}>
+        <span>力强度:</span>
+        <input
+          type="range"
+          min={10}
+          max={200}
+          value={Math.round(graphParams.forceStrength * 100)}
+          onChange={(e) => updateGraphParams({ forceStrength: Number(e.target.value) / 100 })}
+          className="w-16 h-1"
+          style={{ accentColor: "var(--color-bamboo)" }}
+        />
+      </div>
       <div className="flex-1" />
       <ToolbarButton onClick={onReset} title="重置布局">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

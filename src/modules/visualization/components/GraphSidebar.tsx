@@ -170,7 +170,7 @@ export function GraphSidebar() {
       <div className="flex items-center justify-between px-3 h-11 shrink-0">
         {!sidebarCollapsed && (
           <span className="text-[16px] font-semibold" style={{ color: "var(--color-ink)" }}>
-            图谱仪表盘
+            📊 图谱仪表盘
           </span>
         )}
         <button
@@ -317,7 +317,7 @@ export function GraphSidebar() {
                   onClick={(e) => { e.preventDefault(); toggleFilter(cat); }}
                 >
                   <span
-                    className="inline-flex items-center justify-center w-4 h-4 rounded-sm border transition-colors"
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-full border transition-colors"
                     style={{
                       borderColor: checked ? "var(--color-bamboo)" : "var(--color-paper-deep)",
                       backgroundColor: checked ? "var(--color-bamboo)" : "transparent",
@@ -342,6 +342,25 @@ export function GraphSidebar() {
                 </label>
               );
             })}
+          </div>
+
+          {/* Sort dropdown */}
+          <div className="mt-2">
+            <div
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[12px] cursor-pointer"
+              style={{
+                height: 32,
+                backgroundColor: "var(--color-paper-warm)",
+                borderColor: "var(--color-paper-deep)",
+                color: "var(--color-ink-faint)",
+              }}
+            >
+              <span>排序:</span>
+              <span className="flex-1" style={{ color: "var(--color-ink-soft)" }}>引用量</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
           </div>
         </div>
       )}
@@ -424,7 +443,7 @@ function StatRow({ label, value }: { label: string; value: string }) {
 }
 
 function NodeDetailPanel({ nodeId }: { nodeId: string }) {
-  const { linkGraph, notesMetadata, getLinkedNotes, getBacklinks } = useNoteStore();
+  const { linkGraph, notesMetadata, getLinkedNotes, getBacklinks, selectNote } = useNoteStore();
 
   const node = linkGraph.nodes.find((n) => n.id === nodeId);
   if (!node) return null;
@@ -476,6 +495,32 @@ function NodeDetailPanel({ nodeId }: { nodeId: string }) {
           </div>
         </div>
       )}
+      {/* Action buttons */}
+      <div className="flex gap-2 pt-1.5">
+        <button
+          onClick={() => selectNote(node.noteId)}
+          className="flex-1 px-2 py-1.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
+          style={{
+            backgroundColor: "var(--color-bamboo-mist)",
+            color: "var(--color-bamboo)",
+            border: "1px solid var(--color-bamboo)",
+          }}
+        >
+          打开笔记
+        </button>
+        <button
+          onClick={() => {
+            /* Scroll/zoom to node — selectNode already highlights it */
+          }}
+          className="flex-1 px-2 py-1.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer hover:bg-[var(--color-paper-warm)]"
+          style={{
+            border: "1px solid var(--color-paper-deep)",
+            color: "var(--color-ink-faint)",
+          }}
+        >
+          定位
+        </button>
+      </div>
     </div>
   );
 }

@@ -10,11 +10,23 @@ export function GalaxyToolbar() {
 
   return (
     <>
+      <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--color-ink-ghost)" }}>
+        <span>展开距离:</span>
+        <input
+          type="range"
+          min={100}
+          max={500}
+          value={graphParams.orbitDistance}
+          onChange={(e) => updateGraphParams({ orbitDistance: Number(e.target.value) })}
+          className="w-16 h-1"
+          style={{ accentColor: "var(--color-bamboo)" }}
+        />
+      </div>
       <label className="flex items-center gap-1.5 text-[11px] cursor-pointer" style={{ color: "var(--color-ink-faint)" }}>
         <span>轨道</span>
         <ToggleSwitch
-          checked={graphParams.showOrbits}
-          onChange={(v) => updateGraphParams({ showOrbits: v })}
+          checked={graphParams.orbitDensity}
+          onChange={(v) => updateGraphParams({ orbitDensity: v })}
         />
       </label>
       <label className="flex items-center gap-1.5 text-[11px] cursor-pointer" style={{ color: "var(--color-ink-faint)" }}>

@@ -63,9 +63,9 @@ function resolveThemeColors(): {
 }
 
 function mapNodeSize(val: number, maxVal: number): number {
-  if (maxVal <= 0) return 8;
-  const minSize = 4;
-  const maxSize = 24;
+  if (maxVal <= 0) return 12;
+  const minSize = 8;
+  const maxSize = 40;
   return minSize + (val / maxVal) * (maxSize - minSize);
 }
 
@@ -108,6 +108,7 @@ export function ForceGraph2D({
     if (width === 0 || height === 0) return;
 
     const colors = resolveThemeColors();
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     const svg = d3.select(svgEl);
 
     svg.selectAll("*").remove();
@@ -243,22 +244,19 @@ export function ForceGraph2D({
       .append("circle")
       .attr("r", (d: SimNode) => mapNodeSize(d.val, maxVal))
       .attr("fill", (d: SimNode) => d.color)
-      .attr("stroke", (d: SimNode) => d.color)
-      .attr("stroke-width", 1.5)
-      .attr("stroke-opacity", 0.5)
+      .attr("stroke", isDark ? "#222120" : "#ffffff")
+      .attr("stroke-width", 2)
       .attr("filter", (d: SimNode) => (d.val >= highRefCount && !simplified ? "url(#node-glow)" : "none"));
 
     // Node label
     nodeElements
       .append("text")
       .text((d: SimNode) =>
-        d.label.length > 12 ? d.label.slice(0, 12) + "…" : d.label,
+        d.label.length > 8 ? d.label.slice(0, 8) + "..." : d.label,
       )
       .attr("dy", (d: SimNode) => mapNodeSize(d.val, maxVal) + 14)
       .attr("text-anchor", "middle")
-      .attr("font-size", (d: SimNode) =>
-        Math.max(9, 10 + (d.val / maxVal) * 4),
-      )
+      .attr("font-size", 11)
       .attr("fill", colors.text)
       .attr("font-family", '"Noto Sans SC", sans-serif')
       .attr("opacity", (d: SimNode) => (d.val >= highRefCount ? 0.9 : 0));

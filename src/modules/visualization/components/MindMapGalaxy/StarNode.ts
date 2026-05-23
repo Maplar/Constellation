@@ -54,3 +54,31 @@ export function renderStarNodes(
     .attr("font-family", '"Noto Sans SC", sans-serif')
     .attr("opacity", 0.95);
 }
+
+/**
+ * 启动恒星呼吸脉动动画 (scale 1.0 ~ 1.05, 3s 周期)
+ */
+export function startStarBreathingAnimation(
+  selection: d3.Selection<SVGGElement, GalaxyNode, SVGGElement, unknown>,
+) {
+  function breathe() {
+    selection
+      .select<SVGCircleElement>("circle")
+      .transition()
+      .duration(1500)
+      .ease(d3.easeSinInOut)
+      .attr("r", (d) => d.radius * 1.05)
+      .transition()
+      .duration(1500)
+      .ease(d3.easeSinInOut)
+      .attr("r", (d) => d.radius)
+      .on("end", function () {
+        // Only restart if the element is still in the DOM
+        if (this.parentNode) {
+          breathe();
+        }
+      });
+  }
+  // Delay start slightly so initial render completes
+  setTimeout(breathe, 500);
+}

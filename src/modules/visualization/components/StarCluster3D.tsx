@@ -113,6 +113,7 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
   const simNodeMapRef = useRef<Map<string, SimNode3D>>(new Map());
 
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
+  const [focusedCategory, setFocusedCategory] = useState<string | null>(null);
 
   const { notesMetadata, selectNote } = useNoteStore();
   const { selectNode, graphParams, activeFilters } = useGraphStore();
@@ -197,7 +198,7 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
     scene.fog = new THREE.Fog(colors.bg, 800, 2500);
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(45, width / height, 1, 4000);
+    const camera = new THREE.PerspectiveCamera(60, width / height, 1, 4000);
     camera.position.set(0, 120, 500);
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
@@ -214,7 +215,7 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
     scene.add(dirLight);
 
     /* ── Particle field ── */
-    const particles = createParticleField(800, isDark, graphParams.glowIntensity);
+    const particles = createParticleField(graphParams.particleCount, isDark, graphParams.glowIntensity);
     scene.add(particles);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -474,12 +475,12 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
       simNodeMapRef.current.clear();
       setHoverInfo(null);
     };
-  }, [filteredNodes, filteredEdges, maxNodes, handleNodeClick, isVisible, graphParams.autoRotate, graphParams.glowIntensity, categoryMap]);
+  }, [filteredNodes, filteredEdges, maxNodes, handleNodeClick, isVisible, graphParams.autoRotate, graphParams.glowIntensity, graphParams.particleCount, categoryMap]);
 
   const infoText = `当前: 引用星团图 | ${filteredNodes.length} 节点 | 3D 模式`;
 
   return (
-    <CanvasContainer toolbar={<ClusterToolbar />} infoText={infoText}>
+    <CanvasContainer toolbar={<ClusterToolbar focusedCategory={focusedCategory} onFocusCategory={setFocusedCategory} />} infoText={infoText}>
       <div
         ref={(el) => {
           containerRef.current = el;
