@@ -39,3 +39,10 @@ CLAUDE.md
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+##skills
+.claude/
+
+##
+src-tauri/icons/installer-icon.ico
+src-tauri/icons/nsis/
