@@ -222,8 +222,14 @@ export function GraphSidebar() {
                 if (!isActive) e.currentTarget.style.backgroundColor = "transparent";
               }}
             >
-              <span className="shrink-0 flex items-center justify-center" style={{ width: 16, height: 16 }}>
+              <span className="shrink-0 flex items-center justify-center relative" style={{ width: 16, height: 16 }}>
                 {item.icon}
+                {isActive && sidebarCollapsed && (
+                  <span
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                    style={{ backgroundColor: "var(--color-bamboo)" }}
+                  />
+                )}
               </span>
               {!sidebarCollapsed && (
                 <div className="flex-1 min-w-0">

@@ -3,7 +3,7 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useMemo } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { useNoteStore } from "../../notes/stores/useNoteStore";
 import { useGraphStore, type GraphMode } from "../stores/useGraphStore";
 import { ForceGraph2D } from "../../notes/components/ForceGraph2D";
@@ -11,26 +11,92 @@ import { ForceGraph3D } from "../../notes/components/ForceGraph3D";
 import { MindMapGalaxy } from "./MindMapGalaxy";
 import { getCategoryColor } from "../utils/colorMap";
 
+/* ── Draggable Grid ── */
+function DraggableGrid({ children }: { children: React.ReactNode }) {
+  const [order, setOrder] = useState<string[]>([]);
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  const handleDragStart = useCallback((id: string) => {
+    setDragId(id);
+  }, []);
+
+  const handleDrop = useCallback((targetId: string) => {
+    if (!dragId || dragId === targetId) return;
+    setOrder((prev) => {
+      const ids = React.Children.toArray(children)
+        .filter((c): c is React.ReactElement<{ cardId?: string }> => React.isValidElement(c))
+        .map((c) => c.props.cardId || "");
+      const fromIdx = ids.indexOf(dragId);
+      const toIdx = ids.indexOf(targetId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const next = [...ids];
+      next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, dragId);
+      return next;
+    });
+    setDragId(null);
+  }, [dragId, children]);
+
+  const childArray = React.Children.toArray(children).filter(React.isValidElement) as React.ReactElement<{ cardId?: string }>[];
+  const sorted = order.length > 0
+    ? order.map((id) => childArray.find((c) => c.props.cardId === id)).filter(Boolean)
+    : childArray;
+
+  return (
+    <div
+      className="grid gap-4"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}
+    >
+      {sorted.map((child) =>
+        React.isValidElement(child)
+          ? React.cloneElement(child as React.ReactElement<GraphCardExtraProps>, {
+              onDragStart: handleDragStart,
+              onDrop: handleDrop,
+              isDragging: dragId === child.props.cardId,
+            })
+          : child,
+      )}
+    </div>
+  );
+}
+
 /* ── Card wrapper ── */
+interface GraphCardExtraProps {
+  cardId?: string;
+  onDragStart?: (id: string) => void;
+  onDrop?: (id: string) => void;
+  isDragging?: boolean;
+}
+
 interface GraphCardProps {
   title: string;
   mode: GraphMode;
   infoText: string;
   children: React.ReactNode;
+  cardId?: string;
+  onDragStart?: (id: string) => void;
+  onDrop?: (id: string) => void;
+  isDragging?: boolean;
 }
 
-function GraphCard({ title, mode, infoText, children }: GraphCardProps) {
+function GraphCard({ title, mode, infoText, children, cardId, onDragStart, onDrop, isDragging }: GraphCardProps) {
   const { setActiveMode } = useGraphStore();
 
   return (
     <div
+      draggable={!!cardId}
+      onDragStart={() => cardId && onDragStart?.(cardId)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={() => cardId && onDrop?.(cardId)}
       className="flex flex-col overflow-hidden transition-shadow duration-200"
       style={{
         backgroundColor: "var(--color-cloud)",
         borderRadius: 10,
         border: "1px solid var(--color-paper-deep)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+        boxShadow: isDragging ? "0 4px 16px rgba(0,0,0,0.12)" : "0 1px 3px rgba(0,0,0,0.04)",
         height: 280,
+        opacity: isDragging ? 0.6 : 1,
+        cursor: cardId ? "grab" : "default",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)";
@@ -221,12 +287,13 @@ export function DashboardOverview() {
           density={stats.density}
         />
 
-        {/* 2×2 Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Responsive Grid with drag reordering */}
+        <DraggableGrid>
           <GraphCard
             title="文件关系图"
             mode="relation"
             infoText={`${linkGraph.nodes.length} 节点, ${linkGraph.edges.length} 边`}
+            cardId="relation"
           >
             <ForceGraph2D simplified />
           </GraphCard>
@@ -235,6 +302,7 @@ export function DashboardOverview() {
             title="思维导图星系"
             mode="galaxy"
             infoText={`${categories.length} 颗恒星, ${notesMetadata.length} 颗行星`}
+            cardId="galaxy"
           >
             <MindMapGalaxy />
           </GraphCard>
@@ -243,6 +311,7 @@ export function DashboardOverview() {
             title="引用星团图"
             mode="starcluster"
             infoText={`${Math.min(linkGraph.nodes.length, 50)} 节点`}
+            cardId="starcluster"
           >
             <ForceGraph3D
               nodes={linkGraph.nodes}
@@ -257,10 +326,11 @@ export function DashboardOverview() {
             title="分类分布"
             mode="dashboard"
             infoText={`${categories.length} 个分类`}
+            cardId="distribution"
           >
             <CategoryDistribution categories={categories} />
           </GraphCard>
-        </div>
+        </DraggableGrid>
       </div>
     </div>
   );

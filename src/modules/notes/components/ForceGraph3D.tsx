@@ -137,9 +137,8 @@ export function ForceGraph3D({
     if (!container) return;
 
     const bounds = container.getBoundingClientRect();
-    const width = bounds.width;
-    const height = bounds.height;
-    if (width === 0 || height === 0) return;
+    const width = bounds.width || 800;
+    const height = bounds.height || 600;
 
     if (nodes.length === 0 && edges.length === 0) return;
 
@@ -568,4 +567,5 @@ function disposeScene(scene: THREE.Scene): void {
     }
   });
   scene.clear();
+  MATERIAL_CACHE.clear();
 }

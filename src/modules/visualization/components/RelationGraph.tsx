@@ -3,7 +3,7 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useRef, useCallback, useMemo, useState } from "react";
+import { useRef, useCallback, useMemo, useState, useEffect } from "react";
 import { useGraphStore } from "../stores/useGraphStore";
 import { useNoteStore } from "../../notes/stores/useNoteStore";
 import { ForceGraph2D } from "../../notes/components/ForceGraph2D";
@@ -70,13 +70,14 @@ export function RelationGraph() {
 
   /* ── Dimension switch with 300ms transition ── */
   const prevDimRef = useRef(dimensionMode);
-  if (prevDimRef.current !== dimensionMode) {
-    prevDimRef.current = dimensionMode;
-    if (!transitioning) {
+  useEffect(() => {
+    if (prevDimRef.current !== dimensionMode) {
+      prevDimRef.current = dimensionMode;
       setTransitioning(true);
-      setTimeout(() => setTransitioning(false), 300);
+      const timer = setTimeout(() => setTransitioning(false), 300);
+      return () => clearTimeout(timer);
     }
-  }
+  }, [dimensionMode]);
 
   const infoText = `当前: 文件关系图 | ${filteredNodes.length} 节点, ${filteredEdges.length} 边 | ${dimensionMode} 模式`;
 
