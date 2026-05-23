@@ -3,10 +3,10 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import * as d3 from "d3";
 import { useNoteStore } from "../stores/useNoteStore";
-import { getCategoryColor } from "../../visualization/utils/colorMap";
+import { getCategoryColor, getCategoryColorWithOpacity } from "../../visualization/utils/colorMap";
 
 interface ForceGraph2DProps {
   onNodeClick?: (noteId: string) => void;
@@ -35,6 +35,15 @@ interface SimLink extends d3.SimulationLinkDatum<SimNode> {
   value: number;
 }
 
+interface TooltipInfo {
+  nodeId: string;
+  label: string;
+  category: string;
+  val: number;
+  x: number;
+  y: number;
+}
+
 function resolveThemeColors(): {
   bg: string;
   text: string;
@@ -54,9 +63,9 @@ function resolveThemeColors(): {
 }
 
 function mapNodeSize(val: number, maxVal: number): number {
-  if (maxVal <= 0) return 12;
-  const minSize = 12;
-  const maxSize = 48;
+  if (maxVal <= 0) return 8;
+  const minSize = 4;
+  const maxSize = 24;
   return minSize + (val / maxVal) * (maxSize - minSize);
 }
 
@@ -71,6 +80,7 @@ export function ForceGraph2D({
   const simRef = useRef<d3.Simulation<SimNode, SimLink> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hoveredRef = useRef<string | null>(null);
+  const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
 
   const linkGraph = useNoteStore((s) => s.linkGraph);
   const notesMetadata = useNoteStore((s) => s.notesMetadata);
@@ -103,6 +113,42 @@ export function ForceGraph2D({
     svg.selectAll("*").remove();
     svg.attr("width", width).attr("height", height);
 
+    /* ── Defs: glow filter + arrow marker ── */
+    const defs = svg.append("defs");
+
+    // Glow filter for high-ref nodes
+    const glowFilter = defs.append("filter").attr("id", "node-glow").attr("x", "-50%").attr("y", "-50%").attr("width", "200%").attr("height", "200%");
+    glowFilter.append("feGaussianBlur").attr("stdDeviation", "4").attr("result", "blur");
+    glowFilter.append("feMerge").selectAll("feMergeNode").data(["blur", "SourceGraphic"]).join("feMergeNode").attr("in", (d: string) => d);
+
+    // Arrow marker
+    defs.append("marker")
+      .attr("id", "arrow")
+      .attr("viewBox", "0 -4 8 8")
+      .attr("refX", 8)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-3L8,0L0,3")
+      .attr("fill", colors.link)
+      .attr("opacity", 0.5);
+
+    // Highlight arrow marker
+    defs.append("marker")
+      .attr("id", "arrow-highlight")
+      .attr("viewBox", "0 -4 8 8")
+      .attr("refX", 8)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-3L8,0L0,3")
+      .attr("fill", colors.highlight)
+      .attr("opacity", 0.8);
+
     const g = svg.append("g");
 
     const zoomBehavior = d3
@@ -115,6 +161,7 @@ export function ForceGraph2D({
     svg.call(zoomBehavior);
 
     const maxVal = Math.max(...linkGraph.nodes.map((n) => n.val), 1);
+    const highRefCount = Math.max(3, maxVal * 0.3);
 
     const simNodes: SimNode[] = linkGraph.nodes.map((n) => ({
       ...n,
@@ -134,47 +181,78 @@ export function ForceGraph2D({
     const linkGroup = g.append("g").attr("class", "links");
     const nodeGroup = g.append("g").attr("class", "nodes");
 
+    /* ── Edge rendering: curved paths with arrows ── */
     const linkElements = linkGroup
       .selectAll("path")
       .data(simLinks)
       .join("path")
       .attr("fill", "none")
-      .attr("stroke", colors.link)
-      .attr("stroke-width", (d: SimLink) => Math.min(3, Math.max(0.5, d.value * 1.2)))
-      .attr("stroke-opacity", 0.4)
+      .attr("stroke", (d: SimLink) => {
+        const srcNode = simNodes.find((n) => n.id === (typeof d.source === "string" ? d.source : d.source.id));
+        return srcNode ? getCategoryColorWithOpacity(srcNode.category, 0.25) : colors.link;
+      })
+      .attr("stroke-width", (d: SimLink) => Math.min(2.5, Math.max(0.5, d.value * 1)))
+      .attr("stroke-opacity", 0.5)
+      .attr("marker-end", "url(#arrow)")
       .attr("stroke-dasharray", simplified ? "4,4" : "none");
 
+    /* ── Node rendering with fade-in ── */
     const nodeElements = nodeGroup
       .selectAll("g")
       .data(simNodes)
       .join("g")
       .attr("cursor", "pointer")
+      .attr("opacity", 0)
       .on("click", (_event: MouseEvent, d: SimNode) => handleNodeClick(d.noteId))
-      .on("mouseenter", (_event: MouseEvent, d: SimNode) => {
+      .on("mouseenter", (event: MouseEvent, d: SimNode) => {
         hoveredRef.current = d.id;
         onNodeHover?.(d.id);
+        const rect = container.getBoundingClientRect();
+        setTooltip({
+          nodeId: d.id,
+          label: d.label,
+          category: d.category,
+          val: d.val,
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        });
         updateHighlight();
+      })
+      .on("mousemove", (event: MouseEvent) => {
+        const rect = container.getBoundingClientRect();
+        setTooltip((prev) =>
+          prev ? { ...prev, x: event.clientX - rect.left, y: event.clientY - rect.top } : prev,
+        );
       })
       .on("mouseleave", () => {
         hoveredRef.current = null;
         onNodeHover?.(null);
+        setTooltip(null);
         updateHighlight();
       });
 
-    const highRefCount = Math.max(3, maxVal * 0.3);
+    // Fade-in animation
+    nodeElements
+      .transition()
+      .duration(600)
+      .delay((_d, i) => i * 3)
+      .attr("opacity", 1);
 
+    // Node circle with size mapping
     nodeElements
       .append("circle")
       .attr("r", (d: SimNode) => mapNodeSize(d.val, maxVal))
       .attr("fill", (d: SimNode) => d.color)
       .attr("stroke", (d: SimNode) => d.color)
       .attr("stroke-width", 1.5)
-      .attr("stroke-opacity", 0.5);
+      .attr("stroke-opacity", 0.5)
+      .attr("filter", (d: SimNode) => (d.val >= highRefCount && !simplified ? "url(#node-glow)" : "none"));
 
+    // Node label
     nodeElements
       .append("text")
       .text((d: SimNode) =>
-        d.label.length > 12 ? d.label.slice(0, 12) + "\u2026" : d.label,
+        d.label.length > 12 ? d.label.slice(0, 12) + "…" : d.label,
       )
       .attr("dy", (d: SimNode) => mapNodeSize(d.val, maxVal) + 14)
       .attr("text-anchor", "middle")
@@ -229,7 +307,7 @@ export function ForceGraph2D({
           if (searchQuery) {
             return matchIds.has(srcId) || matchIds.has(tgtId) ? 0.6 : 0.05;
           }
-          if (!activeId) return 0.4;
+          if (!activeId) return 0.5;
           return relatedIds.has(srcId) && relatedIds.has(tgtId) ? 0.8 : 0.08;
         })
         .attr("stroke", (d: SimLink) => {
@@ -238,7 +316,16 @@ export function ForceGraph2D({
           if (activeId && relatedIds.has(srcId) && relatedIds.has(tgtId)) {
             return colors.highlight;
           }
-          return colors.link;
+          const srcNode = simNodes.find((n) => n.id === srcId);
+          return srcNode ? getCategoryColorWithOpacity(srcNode.category, 0.25) : colors.link;
+        })
+        .attr("marker-end", (d: SimLink) => {
+          const srcId = typeof d.source === "string" ? d.source : d.source.id;
+          const tgtId = typeof d.target === "string" ? d.target : d.target.id;
+          if (activeId && relatedIds.has(srcId) && relatedIds.has(tgtId)) {
+            return "url(#arrow-highlight)";
+          }
+          return "url(#arrow)";
         })
         .attr("stroke-dasharray", (d: SimLink) => {
           const srcId = typeof d.source === "string" ? d.source : d.source.id;
@@ -301,6 +388,37 @@ export function ForceGraph2D({
   return (
     <div ref={containerRef} className="w-full h-full min-h-0 overflow-hidden relative">
       <svg ref={svgRef} className="w-full h-full" />
+      {/* Tooltip overlay */}
+      {tooltip && (
+        <div
+          className="absolute pointer-events-none z-20 px-3 py-2 rounded-lg shadow-lg"
+          style={{
+            left: tooltip.x + 14,
+            top: tooltip.y - 44,
+            backgroundColor: "var(--color-paper)",
+            border: "1px solid var(--color-paper-deep)",
+            maxWidth: 220,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          }}
+        >
+          <div
+            className="text-[12px] font-medium whitespace-nowrap overflow-hidden text-ellipsis"
+            style={{ color: "var(--color-ink-soft)" }}
+          >
+            {tooltip.label}
+          </div>
+          <div
+            className="text-[10px] flex items-center gap-2 mt-0.5"
+            style={{ color: "var(--color-ink-ghost)" }}
+          >
+            <span
+              className="inline-block w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: getCategoryColor(tooltip.category) }}
+            />
+            <span className="truncate">{tooltip.category} · 引用 {tooltip.val} 次</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

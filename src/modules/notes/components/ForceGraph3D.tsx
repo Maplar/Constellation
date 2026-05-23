@@ -175,6 +175,7 @@ export function ForceGraph3D({
     simNodeMapRef.current.clear();
 
     const colors = resolveThemeColors();
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(colors.bg);
     scene.fog = new THREE.Fog(colors.bg, 800, 2500);
@@ -195,6 +196,29 @@ export function ForceGraph3D({
     const dirLight = new THREE.DirectionalLight(colors.lightColor, 0.6);
     dirLight.position.set(300, 400, 300);
     scene.add(dirLight);
+
+    // Starfield particles
+    if (!simplified) {
+      const starCount = 800;
+      const starPositions = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount; i++) {
+        starPositions[i * 3] = (Math.random() - 0.5) * 3000;
+        starPositions[i * 3 + 1] = (Math.random() - 0.5) * 3000;
+        starPositions[i * 3 + 2] = (Math.random() - 0.5) * 3000;
+      }
+      const starGeom = new THREE.BufferGeometry();
+      starGeom.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+      const starMat = new THREE.PointsMaterial({
+        color: isDark ? 0x888899 : 0xaaaacc,
+        size: 1.2,
+        transparent: true,
+        opacity: isDark ? 0.6 : 0.3,
+        sizeAttenuation: true,
+      });
+      const stars = new THREE.Points(starGeom, starMat);
+      stars.userData.isStarfield = true;
+      scene.add(stars);
+    }
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;

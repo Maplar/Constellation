@@ -18,10 +18,10 @@
 - **托盘菜单** — 关闭到托盘、开机自启、快速记录
 - **沉浸式标题栏** — 自绘窗口控制区域，与整体 UI 融合
 - **Wiki-Link 解析** — 支持 `[[笔记标题]]` 和 `[[笔记标题|别名]]` 语法，自动解析笔记间引用关系
-- **文件关系图谱** — 基于 d3-force 的 2D/3D 笔记关系图谱，节点大小按引用次数映射，颜色按分类区分，支持搜索高亮和点击跳转
-- **思维导图星系** — 将笔记分类可视化为"恒星"，笔记为"行星"围绕分类运行，Wiki-Link 引用以虚线连接，支持点击分类聚焦
-- **引用星团图** — 3D 星团效果，引用越多的笔记越靠近中心，节点带分类色彩和点光源辉光，hover 显示详情浮层
-- **图谱仪表盘** — 同时展示三种可视化模块（关系图 + 星团 + 星系），带统计摘要栏和最大化跳转
+- **文件关系图谱** — 基于 d3-force 的 2D/3D 笔记关系图谱，节点大小按引用次数映射（4~24px），颜色按分类区分，曲线边带方向箭头，高引用节点光晕效果，hover tooltip，300ms 2D/3D 切换动画
+- **思维导图星系** — 分类恒星 + 笔记行星 d3-force 布局，轨道线 + Wiki-Link 虚线连接，支持轨道/连线开关、点击分类聚焦、hover 行星显示标题预览
+- **引用星团图** — Three.js 3D 星团，星空粒子背景（800 粒子），分类色彩点光源辉光，自动旋转 OrbitControls，辉光强度可调，hover 详情浮层
+- **图谱仪表盘** — 统一侧边栏导航（240px）+ 四种模式切换 + 分类筛选 + 统计摘要栏，底部控制栏显示当前模式与节点信息
 - **搜索增强** — 基于 Fuse.js 的模糊搜索，支持标题、内容、分类实时过滤及关键词高亮
 - **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储
 - **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页
@@ -132,10 +132,10 @@ src/
 | **AI 客户端** | 100% | 支持用户自定义 API Key，可对笔记内容进行 AI 总结 |
 | **AI 面板** | 100% | 模态框展示总结结果，支持复制到剪贴板 |
 | **Markdown→PDF** | 100% | 基于 html2pdf.js 实现，支持样式保留和分页 |
-| **图谱仪表盘** | 100% | 侧边栏 + 四种模式（关系图/星系/星团/仪表盘），2D/3D 切换，搜索高亮，统计面板 |
-| **文件关系图谱** | 100% | 2D/3D 力导向图，节点大小/颜色映射，hover 高亮路径，曲线边 |
-| **思维导图星系** | 100% | 分类恒星 + 笔记行星布局，d3-force 模拟，点击聚焦分类 |
-| **引用星团图** | 100% | Three.js 3D 星团，分类色彩点光源，hover 浮层，节点详情面板 |
+| **图谱仪表盘** | 100% | 统一侧边栏（240px，视图切换+分类筛选+图例+统计），StatsBar，底部控制栏，CanvasContainer 画布外壳 |
+| **文件关系图谱** | 100% | 2D/3D 力导向图，节点大小 4~24px 映射，曲线边+方向箭头，光晕效果，hover tooltip，300ms 切换动画 |
+| **思维导图星系** | 100% | 恒星/行星/轨道线拆分组件，d3-force 模拟，轨道/连线开关，点击聚焦分类，activeFilters 联动 |
+| **引用星团图** | 100% | Three.js 3D 星团，粒子背景（ParticleField），辉光效果（GlowEffect），自动旋转，辉光强度可调 |
 | **移动端** | 85% | 底部 TabBar、侧栏抽屉适配、触控优化、核心功能可用（磁贴/便签窗口暂不适用） |
 | **平台抽象层** | 100% | `src/modules/shared/platform/` 提供平台检测、usePlatform Hook、响应式尺寸订阅 |
 
@@ -180,9 +180,16 @@ floral-notepaper/
 │       │   ├── api.ts, theme.ts, tileColor.ts
 │       │   └── types.ts
 │       └── visualization/            # 可视化模块
-│           ├── components/           # GraphDashboard, GraphSidebar, RelationGraph, MindMapGalaxy, StarCluster3D, DashboardOverview
-│           ├── stores/               # useGraphStore（图谱状态管理）
-│           ├── hooks/                # useGalaxyLayout（星系布局）, useVisibility（可见性检测）
+│           ├── components/
+│           │   ├── GraphDashboard    # 仪表盘主布局（StatsBar + 画布 + 底部控制栏）
+│           │   ├── GraphSidebar      # 侧边栏（视图切换 + 分类筛选 + 图例 + 统计）
+│           │   ├── RelationGraph/    # 文件关系图（GraphToolbar + CanvasContainer）
+│           │   ├── MindMapGalaxy/    # 思维导图星系（GalaxyToolbar + StarNode + PlanetNode + OrbitRing）
+│           │   ├── StarCluster3D/    # 引用星团（ClusterToolbar + ParticleField + GlowEffect）
+│           │   ├── DashboardOverview # 仪表盘总览（2×2 网格 + StatsBar + 分类分布）
+│           │   └── shared/           # CanvasContainer, HoverTooltip
+│           ├── stores/               # useGraphStore（graphParams, activeFilters, 模式切换）
+│           ├── hooks/                # useGalaxyLayout, useVisibility
 │           └── utils/                # colorMap（分类颜色映射）
 ├── src-tauri/                        # Rust 后端
 ├── package.json

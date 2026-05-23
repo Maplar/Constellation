@@ -3,13 +3,18 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import * as d3 from "d3";
 import type { BaseType } from "d3";
 import { useNoteStore } from "../../notes/stores/useNoteStore";
 import { useGraphStore } from "../stores/useGraphStore";
 import { useGalaxyLayout, type GalaxyNode } from "../hooks/useGalaxyLayout";
-import { getCategoryColorWithOpacity, getMixedColor } from "../utils/colorMap";
+import { getMixedColor } from "../utils/colorMap";
+import { CanvasContainer } from "./shared/CanvasContainer";
+import { GalaxyToolbar } from "./MindMapGalaxy/GalaxyToolbar";
+import { renderStarNodes } from "./MindMapGalaxy/StarNode";
+import { renderPlanetNodes } from "./MindMapGalaxy/PlanetNode";
+import { renderOrbitRings } from "./MindMapGalaxy/OrbitRing";
 
 export function MindMapGalaxy() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -17,16 +22,32 @@ export function MindMapGalaxy() {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   const { notesMetadata, linkGraph, selectNote } = useNoteStore();
-  const { searchQuery, selectNode } = useGraphStore();
+  const { searchQuery, selectNode, activeFilters, graphParams } = useGraphStore();
 
   const [focusedCategory, setFocusedCategory] = useState<string | null>(null);
 
+  /* ── Filter notes by activeFilters ── */
+  const filteredNotes = useMemo(() => {
+    if (activeFilters.length === 0) return notesMetadata;
+    return notesMetadata.filter((n) => activeFilters.includes(n.category || "未分类"));
+  }, [notesMetadata, activeFilters]);
+
+  const filteredEdges = useMemo(() => {
+    if (activeFilters.length === 0) return linkGraph.edges;
+    const noteIds = new Set(filteredNotes.map((n) => n.id));
+    return linkGraph.edges.filter((e) => noteIds.has(e.source) && noteIds.has(e.target));
+  }, [linkGraph.edges, filteredNotes, activeFilters]);
+
   const { nodes, links } = useGalaxyLayout({
-    notes: notesMetadata,
-    edges: linkGraph.edges,
+    notes: filteredNotes,
+    edges: filteredEdges,
     width: dimensions.width,
     height: dimensions.height,
   });
+
+  const categoryCount = useMemo(() => {
+    return new Set(filteredNotes.map((n) => n.category || "未分类")).size;
+  }, [filteredNotes]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -114,6 +135,15 @@ export function MindMapGalaxy() {
       }
     }
 
+    const config = { focusedCategory, searchQuery, matchIds, isDark };
+
+    /* ── Orbit rings ── */
+    if (graphParams.showOrbits) {
+      const categoryNodes = nodes.filter((n) => n.type === "category");
+      renderOrbitRings(g, categoryNodes, isDark);
+    }
+
+    /* ── Links ── */
     const linkGroup = g.append("g").attr("class", "galaxy-links");
     const nodeGroup = g.append("g").attr("class", "galaxy-nodes");
 
@@ -126,44 +156,47 @@ export function MindMapGalaxy() {
       return typeof value === "string" ? value : value.id;
     };
 
-    linkGroup
-      .selectAll("line")
-      .data(links)
-      .join("line")
-      .attr("x1", (d) => getLinkEndpoint(d.source)?.x ?? 0)
-      .attr("y1", (d) => getLinkEndpoint(d.source)?.y ?? 0)
-      .attr("x2", (d) => getLinkEndpoint(d.target)?.x ?? 0)
-      .attr("y2", (d) => getLinkEndpoint(d.target)?.y ?? 0)
-      .attr("stroke", (d) => {
-        const source = getLinkEndpoint(d.source);
-        const target = getLinkEndpoint(d.target);
-        if (source && target) {
-          return getMixedColor(source.color, target.color);
-        }
-        return isDark ? "#333" : "#ccc";
-      })
-      .attr("stroke-opacity", (d) => {
-        const sourceId = getLinkId(d.source);
-        const targetId = getLinkId(d.target);
-        if (focusedCategory) {
-          const sourceNode = nodes.find((n) => n.id === sourceId);
-          const targetNode = nodes.find((n) => n.id === targetId);
-          if (
-            sourceNode?.categoryId === focusedCategory &&
-            targetNode?.categoryId === focusedCategory
-          ) {
-            return 0.5;
+    if (graphParams.showLinks) {
+      linkGroup
+        .selectAll("line")
+        .data(links)
+        .join("line")
+        .attr("x1", (d) => getLinkEndpoint(d.source)?.x ?? 0)
+        .attr("y1", (d) => getLinkEndpoint(d.source)?.y ?? 0)
+        .attr("x2", (d) => getLinkEndpoint(d.target)?.x ?? 0)
+        .attr("y2", (d) => getLinkEndpoint(d.target)?.y ?? 0)
+        .attr("stroke", (d) => {
+          const source = getLinkEndpoint(d.source);
+          const target = getLinkEndpoint(d.target);
+          if (source && target) {
+            return getMixedColor(source.color, target.color);
           }
-          return 0.05;
-        }
-        if (searchQuery) {
-          return matchIds.has(sourceId) || matchIds.has(targetId) ? 0.5 : 0.05;
-        }
-        return 0.25;
-      })
-      .attr("stroke-width", 1)
-      .attr("stroke-dasharray", "4,4");
+          return isDark ? "#333" : "#ccc";
+        })
+        .attr("stroke-opacity", (d) => {
+          const sourceId = getLinkId(d.source);
+          const targetId = getLinkId(d.target);
+          if (focusedCategory) {
+            const sourceNode = nodes.find((n) => n.id === sourceId);
+            const targetNode = nodes.find((n) => n.id === targetId);
+            if (
+              sourceNode?.categoryId === focusedCategory &&
+              targetNode?.categoryId === focusedCategory
+            ) {
+              return 0.5;
+            }
+            return 0.05;
+          }
+          if (searchQuery) {
+            return matchIds.has(sourceId) || matchIds.has(targetId) ? 0.5 : 0.05;
+          }
+          return 0.25;
+        })
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", "4,4");
+    }
 
+    /* ── Nodes ── */
     const nodeElements = nodeGroup
       .selectAll("g")
       .data(nodes)
@@ -172,62 +205,18 @@ export function MindMapGalaxy() {
       .attr("cursor", "pointer")
       .on("click", (_event: MouseEvent, d: GalaxyNode) => handleNodeClick(d));
 
-    nodeElements
-      .append("circle")
-      .attr("r", (d) => d.radius)
-      .attr("fill", (d) => {
-        if (d.type === "category") {
-          return getCategoryColorWithOpacity(d.categoryId, 0.9);
-        }
-        return getCategoryColorWithOpacity(d.categoryId, 0.6);
-      })
-      .attr("stroke", (d) => d.color)
-      .attr("stroke-width", (d) => (d.type === "category" ? 3 : 1.5))
-      .attr("stroke-opacity", 0.5)
-      .attr("filter", (d) => {
-        if (d.type === "category") {
-          return `drop-shadow(0 0 12px ${d.color})`;
-        }
-        return "none";
-      })
-      .attr("opacity", (d) => {
-        if (focusedCategory) {
-          if (d.type === "category") {
-            return d.categoryId === focusedCategory ? 1 : 0.2;
-          }
-          return d.categoryId === focusedCategory ? 1 : 0.15;
-        }
-        if (searchQuery) {
-          return matchIds.has(d.id) ? 1 : 0.2;
-        }
-        return 1;
-      });
+    // Render circles and text (will be updated by sub-component helpers)
+    nodeElements.append("circle");
+    nodeElements.append("text");
 
-    nodeElements
-      .append("text")
-      .text((d) => {
-        const maxLen = d.type === "category" ? 8 : 12;
-        return d.label.length > maxLen
-          ? d.label.slice(0, maxLen) + "\u2026"
-          : d.label;
-      })
-      .attr("dy", (d) => d.radius + 14)
-      .attr("text-anchor", "middle")
-      .attr("font-size", (d) => (d.type === "category" ? 14 : 11))
-      .attr("font-weight", (d) => (d.type === "category" ? "600" : "400"))
-      .attr("fill", isDark ? "#e5e1da" : "#1a1a18")
-      .attr("font-family", '"Noto Sans SC", sans-serif')
-      .attr("opacity", (d) => {
-        if (d.type === "category") return 0.95;
-        if (focusedCategory) {
-          return d.categoryId === focusedCategory ? 0.9 : 0.05;
-        }
-        if (searchQuery) {
-          return matchIds.has(d.id) ? 0.9 : 0.05;
-        }
-        return d.val >= 3 ? 0.9 : 0;
-      });
+    // Split into star and planet selections
+    const starSelection = nodeElements.filter((d) => d.type === "category") as d3.Selection<SVGGElement, GalaxyNode, SVGGElement, unknown>;
+    const planetSelection = nodeElements.filter((d) => d.type !== "category") as d3.Selection<SVGGElement, GalaxyNode, SVGGElement, unknown>;
 
+    renderStarNodes(starSelection, config);
+    renderPlanetNodes(planetSelection, config);
+
+    /* ── Hover effects ── */
     nodeElements
       .on("mouseenter", function (this: BaseType | SVGGElement, _event: MouseEvent, d: GalaxyNode) {
         d3.select(this as SVGGElement).select("circle").transition().duration(150).attr("r", d.radius * 1.15);
@@ -255,6 +244,7 @@ export function MindMapGalaxy() {
           });
       });
 
+    /* ── Star dots for ambiance ── */
     for (let i = 0; i < 50; i++) {
       const x = Math.random() * dimensions.width;
       const y = Math.random() * dimensions.height;
@@ -275,27 +265,30 @@ export function MindMapGalaxy() {
     searchQuery,
     focusedCategory,
     handleNodeClick,
+    graphParams.showOrbits,
+    graphParams.showLinks,
   ]);
 
+  const infoText = `当前: 思维导图星系 | ${categoryCount} 颗恒星, ${filteredNotes.length} 颗行星`;
+
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full min-h-0 overflow-hidden relative"
-    >
-      <svg ref={svgRef} className="w-full h-full" />
-      {focusedCategory && (
-        <button
-          onClick={() => setFocusedCategory(null)}
-          className="absolute top-3 right-3 px-3 py-1.5 rounded-lg text-[12px] cursor-pointer transition-colors"
-          style={{
-            backgroundColor: "var(--color-paper)",
-            color: "var(--color-ink-soft)",
-            border: "1px solid var(--color-paper-deep)",
-          }}
-        >
-          恢复全局视图
-        </button>
-      )}
-    </div>
+    <CanvasContainer toolbar={<GalaxyToolbar />} infoText={infoText}>
+      <div ref={containerRef} className="w-full h-full min-h-0 overflow-hidden relative">
+        <svg ref={svgRef} className="w-full h-full" />
+        {focusedCategory && (
+          <button
+            onClick={() => setFocusedCategory(null)}
+            className="absolute top-3 right-3 px-3 py-1.5 rounded-lg text-[12px] cursor-pointer transition-colors"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-soft)",
+              border: "1px solid var(--color-paper-deep)",
+            }}
+          >
+            恢复全局视图
+          </button>
+        )}
+      </div>
+    </CanvasContainer>
   );
 }

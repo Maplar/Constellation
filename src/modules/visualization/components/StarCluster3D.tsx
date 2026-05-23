@@ -3,7 +3,7 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import * as d3Force3d from "d3-force-3d";
@@ -12,6 +12,10 @@ import { getCategoryColor } from "../utils/colorMap";
 import { useNoteStore } from "../../notes/stores/useNoteStore";
 import { useGraphStore } from "../stores/useGraphStore";
 import { useVisibility } from "../hooks/useVisibility";
+import { CanvasContainer } from "./shared/CanvasContainer";
+import { ClusterToolbar } from "./StarCluster3D/ClusterToolbar";
+import { createParticleField } from "./StarCluster3D/ParticleField";
+import { addGlowToNode } from "./StarCluster3D/GlowEffect";
 
 interface StarCluster3DProps {
   nodes: GraphNode[];
@@ -111,12 +115,30 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
 
   const { notesMetadata, selectNote } = useNoteStore();
-  const { selectNode } = useGraphStore();
+  const { selectNode, graphParams, activeFilters } = useGraphStore();
 
-  const categoryMap = new Map<string, string>();
-  for (const meta of notesMetadata) {
-    categoryMap.set(meta.id, meta.category || "未分类");
-  }
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const meta of notesMetadata) {
+      map.set(meta.id, meta.category || "未分类");
+    }
+    return map;
+  }, [notesMetadata]);
+
+  /* ── Filter nodes by activeFilters ── */
+  const filteredNodes = useMemo(() => {
+    if (activeFilters.length === 0) return nodes;
+    return nodes.filter((n) => {
+      const cat = categoryMap.get(n.noteId) || "未分类";
+      return activeFilters.includes(cat);
+    });
+  }, [nodes, activeFilters, categoryMap]);
+
+  const filteredEdges = useMemo(() => {
+    if (activeFilters.length === 0) return edges;
+    const ids = new Set(filteredNodes.map((n) => n.id));
+    return edges.filter((e) => ids.has(e.source) && ids.has(e.target));
+  }, [edges, filteredNodes, activeFilters]);
 
   const handleNodeClick = useCallback(
     (noteId: string) => {
@@ -135,14 +157,14 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
     const height = bounds.height;
     if (width === 0 || height === 0) return;
 
-    if (nodes.length === 0 && edges.length === 0) return;
+    if (filteredNodes.length === 0 && filteredEdges.length === 0) return;
 
-    let visibleNodes = nodes;
-    if (maxNodes != null && nodes.length > maxNodes) {
-      visibleNodes = [...nodes].sort((a, b) => b.val - a.val).slice(0, maxNodes);
+    let visibleNodes = filteredNodes;
+    if (maxNodes != null && filteredNodes.length > maxNodes) {
+      visibleNodes = [...filteredNodes].sort((a, b) => b.val - a.val).slice(0, maxNodes);
     }
     const visibleIds = new Set(visibleNodes.map((n) => n.id));
-    const visibleEdges = edges.filter(
+    const visibleEdges = filteredEdges.filter(
       (e) => visibleIds.has(e.source) && visibleIds.has(e.target),
     );
 
@@ -169,6 +191,7 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
     simNodeMapRef.current.clear();
 
     const colors = resolveThemeColors();
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(colors.bg);
     scene.fog = new THREE.Fog(colors.bg, 800, 2500);
@@ -190,12 +213,18 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
     dirLight.position.set(300, 400, 300);
     scene.add(dirLight);
 
+    /* ── Particle field ── */
+    const particles = createParticleField(800, isDark, graphParams.glowIntensity);
+    scene.add(particles);
+
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.minDistance = 100;
     controls.maxDistance = 1500;
     controls.target.set(0, 0, 0);
+    controls.autoRotate = graphParams.autoRotate;
+    controls.autoRotateSpeed = 0.3;
     controlsRef.current = controls;
 
     const maxVal = Math.max(...visibleNodes.map((n) => n.val), 1);
@@ -222,7 +251,6 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
 
     for (const simNode of simNodes) {
       const scale = mapNodeSize(simNode.val, maxVal);
-
       const material = getCachedMaterial(simNode.color, 1);
 
       const mesh = new THREE.Mesh(nodeGeometry, material);
@@ -237,14 +265,8 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
       mesh.castShadow = true;
       mesh.receiveShadow = true;
 
-      if (simNode.val > maxVal * 0.15) {
-        const pointLight = new THREE.PointLight(
-          new THREE.Color(simNode.color),
-          (simNode.val / maxVal) * 0.6,
-          120,
-        );
-        mesh.add(pointLight);
-      }
+      /* ── Glow effect using helper ── */
+      addGlowToNode(mesh, simNode.color, simNode.val / maxVal, graphParams.glowIntensity);
 
       scene.add(mesh);
       nodeMeshesRef.current.set(simNode.id, mesh);
@@ -452,48 +474,54 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
       simNodeMapRef.current.clear();
       setHoverInfo(null);
     };
-  }, [nodes, edges, maxNodes, handleNodeClick, isVisible]);
+  }, [filteredNodes, filteredEdges, maxNodes, handleNodeClick, isVisible, graphParams.autoRotate, graphParams.glowIntensity, categoryMap]);
+
+  const infoText = `当前: 引用星团图 | ${filteredNodes.length} 节点 | 3D 模式`;
 
   return (
-    <div
-      ref={(el) => {
-        containerRef.current = el;
-        if (visibilityRef) {
-          (visibilityRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-        }
-      }}
-      className="w-full h-full min-h-0 overflow-hidden relative"
-    >
-      {hoverInfo && (
-        <div
-          className="absolute pointer-events-none z-10 px-3 py-2 rounded-lg shadow-lg"
-          style={{
-            left: hoverInfo.x + 12,
-            top: hoverInfo.y - 40,
-            backgroundColor: "var(--color-paper)",
-            border: "1px solid var(--color-paper-deep)",
-            transform: "translateX(-50%)",
-          }}
-        >
+    <CanvasContainer toolbar={<ClusterToolbar />} infoText={infoText}>
+      <div
+        ref={(el) => {
+          containerRef.current = el;
+          if (visibilityRef) {
+            (visibilityRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+          }
+        }}
+        className="w-full h-full min-h-0 overflow-hidden relative"
+      >
+        {hoverInfo && (
           <div
-            className="text-[12px] font-medium whitespace-nowrap"
-            style={{ color: "var(--color-ink-soft)" }}
+            className="absolute pointer-events-none z-10 px-3 py-2 rounded-lg"
+            style={{
+              left: hoverInfo.x + 12,
+              top: hoverInfo.y - 40,
+              backgroundColor: "var(--color-cloud)",
+              border: "1px solid var(--color-paper-deep)",
+              borderRadius: 8,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+              transform: "translateX(-50%)",
+            }}
           >
-            {hoverInfo.label}
+            <div
+              className="text-[12px] font-medium whitespace-nowrap"
+              style={{ color: "var(--color-ink-soft)" }}
+            >
+              {hoverInfo.label}
+            </div>
+            <div
+              className="text-[10px] flex items-center gap-2"
+              style={{ color: "var(--color-ink-ghost)" }}
+            >
+              <span
+                className="inline-block w-2 h-2 rounded-full"
+                style={{ backgroundColor: getCategoryColor(hoverInfo.category) }}
+              />
+              {hoverInfo.category} · 被引用 {hoverInfo.val} 次
+            </div>
           </div>
-          <div
-            className="text-[10px] flex items-center gap-2"
-            style={{ color: "var(--color-ink-ghost)" }}
-          >
-            <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: getCategoryColor(hoverInfo.category) }}
-            />
-            {hoverInfo.category} · 被引用 {hoverInfo.val} 次
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </CanvasContainer>
   );
 }
 
