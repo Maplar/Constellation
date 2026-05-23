@@ -12,7 +12,11 @@ import { MindMapGalaxy } from "./MindMapGalaxy";
 import { StarCluster3D } from "./StarCluster3D";
 import { DashboardOverview } from "./DashboardOverview";
 
-export function GraphDashboard() {
+interface GraphDashboardProps {
+  onBack?: () => void;
+}
+
+export function GraphDashboard({ onBack }: GraphDashboardProps = {}) {
   const { activeMode, dimensionMode, toggleDimension } = useGraphStore();
   const { loadNotes, loadFullNotes, linkGraph, notesMetadata, selectNote } = useNoteStore();
 
@@ -83,7 +87,7 @@ export function GraphDashboard() {
         }}
       >
         <button
-          onClick={() => selectNote(null)}
+          onClick={() => onBack ? onBack() : selectNote(null)}
           className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] transition-colors cursor-pointer hover:bg-[var(--color-paper-warm)]"
           style={{ color: "var(--color-ink-faint)" }}
         >

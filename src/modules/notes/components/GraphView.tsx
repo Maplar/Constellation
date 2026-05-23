@@ -5,6 +5,10 @@
 
 import { GraphDashboard } from "../../visualization/components/GraphDashboard";
 
-export function GraphView() {
-  return <GraphDashboard />;
+interface GraphViewProps {
+  onBack?: () => void;
+}
+
+export function GraphView({ onBack }: GraphViewProps = {}) {
+  return <GraphDashboard onBack={onBack} />;
 }

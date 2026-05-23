@@ -61,6 +61,7 @@ import {
   type NoteContextMenuAction,
 } from "../modules/notes/noteContextMenu";
 import { openNotepadWindow, openTileWindow } from "../modules/windows/api";
+import { GraphView } from "../modules/notes/components/GraphView";
 import {
   closeCurrentWindow,
   minimizeCurrentWindow,
@@ -260,6 +261,7 @@ export function MainWindow({
     normalizeViewMode(initialConfig?.defaultViewMode ?? "split"),
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -1048,6 +1050,25 @@ export function MainWindow({
             {!isMobile && (
               <>
                 <button
+                  onClick={() => setShowGraph(true)}
+                  className="w-10 h-11 flex items-center justify-center text-ink-ghost hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer"
+                  title="图谱仪表盘"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="6" cy="6" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="18" r="3" />
+                    <path d="M8.5 7.5L15.5 16.5M15.5 7.5L8.5 16.5" />
+                  </svg>
+                </button>
+                <button
                   onClick={() => void handleOpenNotepad()}
                   className="w-10 h-11 flex items-center justify-center text-ink-ghost hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer"
                   title="快捷便签"
@@ -1522,6 +1543,9 @@ export function MainWindow({
           </div>
 
           <div className="flex-1 flex flex-col min-w-0">
+            {showGraph ? (
+              <GraphView onBack={() => setShowGraph(false)} />
+            ) : (<>
             <div className="flex items-center justify-between px-4 h-10 border-b border-paper-deep/20 shrink-0 bg-paper/20">
               <div className="flex items-center gap-1">
                 <button
@@ -1844,6 +1868,7 @@ export function MainWindow({
                 </span>
               </div>
             </div>
+            </>)}
           </div>
           {settingsConfig && (
             <div className={`relative shrink-0 transition-all duration-[600ms] overflow-hidden h-full ${
