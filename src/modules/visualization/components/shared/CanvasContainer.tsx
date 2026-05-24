@@ -14,39 +14,42 @@ export function CanvasContainer({ toolbar, infoText, children }: CanvasContainer
     <div
       className="w-full h-full flex flex-col overflow-hidden"
       style={{
-        backgroundColor: "var(--color-paper)",
-        borderRadius: 10,
-        border: "1px solid var(--color-paper-deep)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+        backgroundColor: "var(--bg-secondary)",
+        borderRadius: "var(--radius)",
+        border: "1px solid var(--border)",
+        boxShadow: "var(--shadow-sm)",
       }}
     >
-      {/* Toolbar */}
+      {/* Toolbar — 36px */}
       <div
         className="shrink-0 flex items-center gap-2 px-3 h-9 border-b"
         style={{
-          borderColor: "var(--color-paper-deep)",
-          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--border)",
+          backgroundColor: "var(--bg-secondary)",
         }}
       >
         {toolbar}
       </div>
 
-      {/* Canvas content */}
-      <div className="flex-1 min-h-0 relative">
+      {/* Canvas content — warm primary bg */}
+      <div
+        className="flex-1 min-h-0 relative"
+        style={{ backgroundColor: "var(--bg-primary)" }}
+      >
         {children}
       </div>
 
-      {/* Info bar */}
+      {/* Info bar — 28px */}
       <div
         className="shrink-0 flex items-center px-3 h-7 border-t"
         style={{
-          borderColor: "var(--color-paper-deep)",
-          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--border)",
+          backgroundColor: "var(--bg-secondary)",
         }}
       >
         <span
-          className="text-[11px] truncate"
-          style={{ color: "var(--color-ink-ghost)" }}
+          className="text-[12px] truncate"
+          style={{ color: "var(--text-muted)" }}
         >
           {infoText}
         </span>

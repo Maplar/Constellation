@@ -15,12 +15,14 @@ import { useVisibility } from "../hooks/useVisibility";
 import { CanvasContainer } from "./shared/CanvasContainer";
 import { ClusterToolbar } from "./StarCluster3D/ClusterToolbar";
 import { createParticleField } from "./StarCluster3D/ParticleField";
-import { addGlowToNode } from "./StarCluster3D/GlowEffect";
+import { addGlowHalo } from "./StarCluster3D/GlowEffect";
 
 interface StarCluster3DProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   maxNodes?: number;
+  /** When true, skip CanvasContainer wrapper — render raw canvas for card embedding */
+  simplified?: boolean;
 }
 
 interface SimNode3D extends d3Force3d.SimulationNodeDatum {
@@ -97,7 +99,7 @@ function mapNodeSize(val: number, maxVal: number): number {
   return minSize + (val / maxVal) * (maxSize - minSize);
 }
 
-export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DProps) {
+export function StarCluster3D({ nodes, edges, maxNodes = 300, simplified = false }: StarCluster3DProps) {
   const [visibilityRef, isVisible] = useVisibility();
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -266,7 +268,7 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
       mesh.receiveShadow = true;
 
       /* ── Glow effect using helper ── */
-      addGlowToNode(mesh, simNode.color, simNode.val / maxVal, graphParams.glowIntensity);
+      addGlowHalo(mesh, simNode.color, (simNode.val / maxVal) * graphParams.glowIntensity);
 
       scene.add(mesh);
       nodeMeshesRef.current.set(simNode.id, mesh);
@@ -478,49 +480,57 @@ export function StarCluster3D({ nodes, edges, maxNodes = 300 }: StarCluster3DPro
 
   const infoText = `当前: 引用星团图 | ${filteredNodes.length} 节点 | 3D 模式`;
 
+  const canvasContent = (
+    <div
+      ref={(el) => {
+        containerRef.current = el;
+        if (visibilityRef) {
+          (visibilityRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+        }
+      }}
+      className="w-full h-full min-h-0 overflow-hidden relative"
+    >
+      {hoverInfo && (
+        <div
+          className="absolute pointer-events-none z-10 px-3 py-2 rounded-lg"
+          style={{
+            left: hoverInfo.x + 12,
+            top: hoverInfo.y - 40,
+            backgroundColor: "var(--color-cloud)",
+            border: "1px solid var(--color-paper-deep)",
+            borderRadius: 8,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+            transform: "translateX(-50%)",
+          }}
+        >
+          <div
+            className="text-[12px] font-medium whitespace-nowrap"
+            style={{ color: "var(--color-ink-soft)" }}
+          >
+            {hoverInfo.label}
+          </div>
+          <div
+            className="text-[10px] flex items-center gap-2"
+            style={{ color: "var(--color-ink-ghost)" }}
+          >
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ backgroundColor: getCategoryColor(hoverInfo.category) }}
+            />
+            {hoverInfo.category} · 被引用 {hoverInfo.val} 次
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (simplified) {
+    return canvasContent;
+  }
+
   return (
     <CanvasContainer toolbar={<ClusterToolbar focusedCategory={focusedCategory} onFocusCategory={setFocusedCategory} />} infoText={infoText}>
-      <div
-        ref={(el) => {
-          containerRef.current = el;
-          if (visibilityRef) {
-            (visibilityRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-          }
-        }}
-        className="w-full h-full min-h-0 overflow-hidden relative"
-      >
-        {hoverInfo && (
-          <div
-            className="absolute pointer-events-none z-10 px-3 py-2 rounded-lg"
-            style={{
-              left: hoverInfo.x + 12,
-              top: hoverInfo.y - 40,
-              backgroundColor: "var(--color-cloud)",
-              border: "1px solid var(--color-paper-deep)",
-              borderRadius: 8,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-              transform: "translateX(-50%)",
-            }}
-          >
-            <div
-              className="text-[12px] font-medium whitespace-nowrap"
-              style={{ color: "var(--color-ink-soft)" }}
-            >
-              {hoverInfo.label}
-            </div>
-            <div
-              className="text-[10px] flex items-center gap-2"
-              style={{ color: "var(--color-ink-ghost)" }}
-            >
-              <span
-                className="inline-block w-2 h-2 rounded-full"
-                style={{ backgroundColor: getCategoryColor(hoverInfo.category) }}
-              />
-              {hoverInfo.category} · 被引用 {hoverInfo.val} 次
-            </div>
-          </div>
-        )}
-      </div>
+      {canvasContent}
     </CanvasContainer>
   );
 }

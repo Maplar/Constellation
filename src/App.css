@@ -26,6 +26,28 @@
   --color-shadow-deep: rgba(26, 26, 24, 0.12);
   --color-danger-bg: #fef2f2;
 
+  /* ── Spec-compatible aliases (refactor-prompt.md) ── */
+  --bg-primary: var(--color-paper);
+  --bg-secondary: var(--color-cloud);
+  --bg-sidebar: var(--color-paper);
+  --bg-hover: var(--color-paper-warm);
+  --bg-active: var(--color-paper-deep);
+  --text-primary: var(--color-ink);
+  --text-secondary: var(--color-ink-faint);
+  --text-muted: var(--color-ink-ghost);
+  --border: var(--color-paper-deep);
+  --border-light: var(--color-paper-warm);
+  --accent: var(--color-bamboo);
+  --accent-hover: var(--color-bamboo-light);
+  --accent-light: var(--color-bamboo-mist);
+  --danger: #c0392b;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+
   --font-display: "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
   --font-body: "Noto Sans SC", "Source Han Sans SC", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
@@ -48,6 +70,7 @@
   --color-shadow: rgba(0, 0, 0, 0.3);
   --color-shadow-deep: rgba(0, 0, 0, 0.5);
   --color-danger-bg: rgba(220, 38, 38, 0.15);
+  --danger: #e74c3c;
 }
 
 /* Theme transition — applied briefly during theme switch for a uniform crossfade */

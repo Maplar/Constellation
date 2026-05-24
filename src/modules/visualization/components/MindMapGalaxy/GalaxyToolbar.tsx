@@ -10,7 +10,7 @@ export function GalaxyToolbar() {
 
   return (
     <>
-      <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--color-ink-ghost)" }}>
+      <div className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--text-muted)" }}>
         <span>展开距离:</span>
         <input
           type="range"
@@ -19,17 +19,18 @@ export function GalaxyToolbar() {
           value={graphParams.orbitDistance}
           onChange={(e) => updateGraphParams({ orbitDistance: Number(e.target.value) })}
           className="w-16 h-1"
-          style={{ accentColor: "var(--color-bamboo)" }}
+          style={{ accentColor: "var(--accent)" }}
         />
+        <span className="font-mono text-[10px] w-6">{graphParams.orbitDistance}</span>
       </div>
-      <label className="flex items-center gap-1.5 text-[11px] cursor-pointer" style={{ color: "var(--color-ink-faint)" }}>
+      <label className="flex items-center gap-1.5 text-[12px] cursor-pointer" style={{ color: "var(--text-secondary)" }}>
         <span>轨道</span>
         <ToggleSwitch
           checked={graphParams.orbitDensity}
           onChange={(v) => updateGraphParams({ orbitDensity: v })}
         />
       </label>
-      <label className="flex items-center gap-1.5 text-[11px] cursor-pointer" style={{ color: "var(--color-ink-faint)" }}>
+      <label className="flex items-center gap-1.5 text-[12px] cursor-pointer" style={{ color: "var(--text-secondary)" }}>
         <span>连线</span>
         <ToggleSwitch
           checked={graphParams.showLinks}
@@ -48,21 +49,21 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: b
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className="relative inline-flex items-center cursor-pointer"
-      style={{ width: 32, height: 18 }}
+      style={{ width: 40, height: 22 }}
     >
       <span
         className="absolute inset-0 rounded-full transition-colors"
         style={{
-          backgroundColor: checked ? "var(--color-bamboo)" : "var(--color-paper-deep)",
+          backgroundColor: checked ? "var(--accent)" : "#ccc",
         }}
       />
       <span
         className="absolute top-[2px] rounded-full bg-white transition-transform"
         style={{
-          width: 14,
-          height: 14,
+          width: 18,
+          height: 18,
           left: 2,
-          transform: checked ? "translateX(14px)" : "translateX(0)",
+          transform: checked ? "translateX(18px)" : "translateX(0)",
           boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
         }}
       />

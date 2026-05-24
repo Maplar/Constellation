@@ -21,17 +21,26 @@ import { listen, emit } from "@tauri-apps/api/event";
 import { usePlatform } from "./modules/shared/platform/usePlatform";
 import { MobileTabBar } from "./modules/shared/components/MobileTabBar";
 import { SettingsPanel } from "./modules/settings/components/SettingsPanel";
+import { useAppModeStore } from "./modules/shared/stores/useAppModeStore";
+import { IconSidebar } from "./components/IconSidebar";
+import { TopBar } from "./components/TopBar";
+import { EditorLayout } from "./components/EditorLayout";
+import { DashboardView } from "./components/DashboardView";
 
 // ─── 桌面端布局 ────────────────────────────────────────────────────────────
 
 function DesktopApp() {
   const route = getInitialRoute();
   const activeView = route.view;
+  const mode = useAppModeStore((s) => s.mode);
+  const [settingsConfig, setSettingsConfig] = useState<AppConfig | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     let cleanup = () => {};
     getConfig()
       .then((config) => {
+        setSettingsConfig(config);
         const theme = (config.theme || "system") as ThemeOption;
         applyTheme(theme);
         cleanup = watchSystemTheme(theme);
@@ -42,6 +51,7 @@ function DesktopApp() {
 
   useEffect(() => {
     const unlisten = listen<AppConfig>("config-changed", (event) => {
+      setSettingsConfig(event.payload);
       const theme = (event.payload.theme || "system") as ThemeOption;
       applyTheme(theme);
       watchSystemTheme(theme);
@@ -51,17 +61,66 @@ function DesktopApp() {
     };
   }, []);
 
-  return (
-    <div className="h-screen font-body text-ink overflow-hidden">
-      {activeView === "main" ? (
-        <MainWindow />
-      ) : activeView === "notepad" ? (
+  const handleSettingsChange = (nextConfig: AppConfig) => {
+    setSettingsConfig(nextConfig);
+    void emit("config-changed", nextConfig);
+    persistSettings(nextConfig);
+  };
+
+  const handleChooseNotesDir = async () => {
+    const dir = await chooseNotesDirectory();
+    if (dir && settingsConfig) {
+      handleSettingsChange({ ...settingsConfig, notesDir: dir });
+    }
+  };
+
+  if (activeView === "notepad") {
+    return (
+      <div className="h-screen font-body text-ink overflow-hidden">
         <NotePad initialNoteId={route.noteId} />
-      ) : activeView === "tile" ? (
+      </div>
+    );
+  }
+
+  if (activeView === "tile") {
+    return (
+      <div className="h-screen font-body text-ink overflow-hidden">
         <TileShowcase noteId={route.noteId} />
-      ) : (
+      </div>
+    );
+  }
+
+  if (activeView === "graph") {
+    return (
+      <div className="h-screen font-body text-ink overflow-hidden">
         <GraphView />
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen font-body text-ink overflow-hidden flex">
+      <IconSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <TopBar onOpenSettings={() => setSettingsOpen((prev) => !prev)} />
+        <div className="flex-1 min-h-0 flex">
+          {mode === "edit" ? (
+            <EditorLayout initialConfig={settingsConfig ?? undefined} />
+          ) : (
+            <DashboardView />
+          )}
+          {settingsConfig && settingsOpen && (
+            <div className="shrink-0 w-[360px] h-full overflow-y-auto border-l" style={{ borderColor: "var(--border)" }}>
+              <SettingsPanel
+                config={settingsConfig}
+                onChange={handleSettingsChange}
+                onChooseNotesDir={() => void handleChooseNotesDir()}
+                onClose={() => setSettingsOpen(false)}
+              />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

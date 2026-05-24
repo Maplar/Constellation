@@ -18,15 +18,16 @@
 - **托盘菜单** — 关闭到托盘、开机自启、快速记录
 - **沉浸式标题栏** — 自绘窗口控制区域，与整体 UI 融合
 - **Wiki-Link 解析** — 支持 `[[笔记标题]]` 和 `[[笔记标题|别名]]` 语法，自动解析笔记间引用关系
-- **文件关系图谱** — 基于 d3-force 的 2D/3D 笔记关系图谱，节点大小按引用次数映射（4~24px），颜色按分类区分，曲线边带方向箭头，高引用节点光晕效果，hover tooltip，300ms 2D/3D 切换动画
-- **思维导图星系** — 分类恒星 + 笔记行星 d3-force 布局，轨道线 + Wiki-Link 虚线连接，支持轨道/连线开关、点击分类聚焦、hover 行星显示标题预览
-- **引用星团图** — Three.js 3D 星团，星空粒子背景（800 粒子），分类色彩点光源辉光，自动旋转 OrbitControls，辉光强度可调，hover 详情浮层
-- **图谱仪表盘** — 统一侧边栏导航（240px）+ 四种模式切换 + 分类筛选 + 统计摘要栏，底部控制栏显示当前模式与节点信息
-- **搜索增强** — 基于 Fuse.js 的模糊搜索，支持标题、内容、分类实时过滤及关键词高亮
+- **文件关系图谱** — 基于 d3-force 的 2D 力导向图谱，节点按引用次数线性映射 8~40px（d3.scaleLinear），分类填色（colorMap 10 色调色板 + 暗色模式自适应），白色 2px 描边，标签置顶 4px（11px / var(--text-primary) / 8 字截断），贝塞尔曲线边 + 方向箭头，hover 节点 1.2x + 关联节点 1.1x + 关联边加粗高亮，点击联动 store.setSelectedNode，GraphToolbar（36px / 2D-3D 切换 / 力强度 0.1~2.0 / 重置）
+- **思维导图星系** — React SVG 组件化星系：StarNode（r:30px, CSS @keyframes pulse 呼吸动画 3s, 白描边 2px, d3-drag 可拖拽, 点击聚焦）、PlanetNode（r:6~18px d3.scaleLinear 按引用映射, SVG`<title>` 悬停标题, 白描边 1.5px）、OrbitRing（虚线圆 `stroke:var(--border) stroke-dasharray:4 4`）、GalaxyCanvas（全尺寸 SVG, 恒星圆周布局 + 行星多层环均匀分布, 跨分类贝塞尔虚线连线, 点击恒星聚焦 opacity 0.2 过渡, 缩放 0.2~3x + 平移）
+- **引用星团图** — Three.js 3D 星团（fov:45 PerspectiveCamera + OrbitControls 自动旋转 + 阻尼），星空粒子背景（±2000 随机分布, PointsMaterial 白色 0.2px），辉光 halo（val>3 节点附加半透明 MeshBasicMaterial 球体 1.6x + AdditiveBlending），卡片工具栏（辉光强度/粒子数量/旋转开关）；支持 `simplified` 模式嵌入卡片
+- **图谱仪表盘** — 动态卡片网格（ResizeObserver 1/2/3 列自适应）：文件关系图 2D（含力强度滑块工具栏）、思维导图星系（含轨道/连线工具栏）、3D 星团图、分类分布 SVG 环形图（含图例）、引用排行列表（含进度条）、笔记/链接统计卡片；仪表盘模式下顶栏搜索同步到图谱节点高亮
+- **搜索增强** — 基于 Fuse.js 的模糊搜索 + 图谱节点高亮：2D 关系图 d3 选择器绿色描边高亮匹配节点 + 星系图行星 fill 颜色变化 + 3D 星团 MeshPhongMaterial emissive 高亮
 - **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储
 - **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页
 - **品牌安装界面** — 基于 NSIS 的中国风安装/卸载向导，毛笔字体标题、水墨装饰、篆刻印章，与应用 UI 颜色系统统一
 - **跨平台适配** — 支持 Windows/macOS/Linux 桌面端与 Android/iOS 移动端，UI 根据平台自动调整（底部 TabBar、触控优化、侧栏抽屉）
+- **全局模式切换** — 48px IconSidebar 常驻左侧，编辑模式（笔记列表+编辑器）与仪表盘模式（图谱网格）一键切换；仪表盘卡片支持拖拽排序 + localStorage 布局持久化
 
 ## 技术架构
 
@@ -86,7 +87,14 @@ src/
 │   ├── TileShowcase 磁贴窗口             └── notes.rs   笔记存储引擎
 │   ├── SettingsPanel 设置面板              (CRUD、元数据、配置持久化)
 │   ├── ContextMenu  右键菜单
-│   └── SlidingButtonGroup 滑动按钮组
+│   ├── SlidingButtonGroup 滑动按钮组
+│   ├── IconSidebar  模式切换侧栏（48px）
+│   ├── TopBar       顶栏（标题+搜索+窗口控制）
+│   ├── TopBarSearch 顶栏搜索框
+│   ├── NoteListPanel 笔记列表侧栏（提取组件）
+│   ├── EditorLayout 编辑布局（NoteListPanel+编辑器）
+│   ├── DashboardCard  仪表盘卡片（hover 关闭按钮）
+│   └── DashboardView 仪表盘视图
 └── features/        功能模块
     ├── notes/       笔记 API + 工具函数
     ├── settings/    配置 API + 主题/颜色
@@ -132,12 +140,13 @@ src/
 | **AI 客户端** | 100% | 支持用户自定义 API Key，可对笔记内容进行 AI 总结 |
 | **AI 面板** | 100% | 模态框展示总结结果，支持复制到剪贴板 |
 | **Markdown→PDF** | 100% | 基于 html2pdf.js 实现，支持样式保留和分页 |
-| **图谱仪表盘** | 100% | 统一侧边栏（240px，视图切换+分类筛选+图例+统计），StatsBar，底部控制栏，CanvasContainer 画布外壳 |
-| **文件关系图谱** | 100% | 2D/3D 力导向图，节点大小 4~24px 映射，曲线边+方向箭头，光晕效果，hover tooltip，300ms 切换动画 |
-| **思维导图星系** | 100% | 恒星/行星/轨道线拆分组件，d3-force 模拟，轨道/连线开关，点击聚焦分类，activeFilters 联动 |
-| **引用星团图** | 100% | Three.js 3D 星团，粒子背景（ParticleField），辉光效果（GlowEffect），自动旋转，辉光强度可调 |
+| **图谱仪表盘** | 100% | GraphSidebar（240px/48px 折叠，视图切换+搜索+分类筛选+排序+图例+统计+节点详情），StatsBar（64px/28px 粗体统计），GraphDashboard 主布局，2×2 可拖拽卡片，CanvasContainer 画布外壳 |
+| **文件关系图谱** | 100% | 2D/3D 力导向图，节点 8~40px 白色 2px 描边，11px 标签截断 8 字，贝塞尔曲线边+箭头，光晕效果，hover 高亮关联路径+tooltip，300ms 切换动画，力强度滑块 |
+| **思维导图星系** | 100% | 恒星（r:30px 呼吸脉动）/行星（r:6~18px）/轨道线拆分组件，d3-force 模拟，展开距离/轨道密度滑块，轨道/连线开关，点击聚焦分类，flow 动画，activeFilters 联动 |
+| **引用星团图** | 100% | Three.js 3D 星团（fov:60），粒子背景（ParticleField 100~1000 可调），辉光效果（GlowEffect 强度可调），自动旋转，聚焦分类下拉，hover 详情浮层 |
 | **移动端** | 85% | 底部 TabBar、侧栏抽屉适配、触控优化、核心功能可用（磁贴/便签窗口暂不适用） |
 | **平台抽象层** | 100% | `src/modules/shared/platform/` 提供平台检测、usePlatform Hook、响应式尺寸订阅 |
+| **全局布局系统** | 100% | IconSidebar、TopBar、DashboardView (1/2/3列自适应+拖拽排序+持久化)、DashboardCard (hover关闭+draggable)；useAppModeStore；React.lazy+ErrorBoundary；useThreeRenderer；搜索节点高亮 (2D/星系/3D) |
 
 ## 项目结构
 
@@ -154,6 +163,7 @@ floral-notepaper/
 │       ├── shared/                   # 跨模块共享
 │       │   ├── types/                # 全局类型（notes.ts, settings.ts）
 │       │   ├── platform/             # 平台抽象层（types.ts, index.ts, usePlatform.ts）
+│       │   ├── stores/               # 全局 stores（useAppModeStore.ts）
 │       │   ├── hooks/                # 通用 hooks
 │       │   ├── utils/                # 通用工具（noteUtils.ts, highlightUtils.tsx）
 │       │   └── components/           # 通用 UI（ContextMenu, SlidingButtonGroup, MobileTabBar, MobileBottomSheet）
@@ -183,12 +193,13 @@ floral-notepaper/
 │           ├── components/
 │           │   ├── GraphDashboard    # 仪表盘主布局（StatsBar + 画布 + 底部控制栏）
 │           │   ├── GraphSidebar      # 侧边栏（视图切换 + 分类筛选 + 图例 + 统计）
-│           │   ├── RelationGraph/    # 文件关系图（GraphToolbar + CanvasContainer）
-│           │   ├── MindMapGalaxy/    # 思维导图星系（GalaxyToolbar + StarNode + PlanetNode + OrbitRing）
-│           │   ├── StarCluster3D/    # 引用星团（ClusterToolbar + ParticleField + GlowEffect）
+│           │   ├── cards/            # 卡片内容组件（RelationGraphCard, GalaxyCard, CategoryDonutCard, CitationRankingCard）
+│           │   ├── RelationGraph/    # 文件关系图（GraphToolbar: 2D/3D 切换+力强度滑块+重置）
+│           │   ├── MindMapGalaxy/    # 思维导图星系（GalaxyCanvas+GalaxyToolbar+StarNode+PlanetNode+OrbitRing）
+│           │   ├── StarCluster3D/    # 引用星团（ClusterToolbar+ParticleField: addParticleField+GlowEffect: MeshBasicMaterial halo）
 │           │   ├── DashboardOverview # 仪表盘总览（2×2 网格 + StatsBar + 分类分布）
 │           │   └── shared/           # CanvasContainer, HoverTooltip
-│           ├── stores/               # useGraphStore（graphParams, activeFilters, 模式切换）
+│           ├── stores/               # useGraphStore（graphParams, activeFilters, 模式切换）+ useVisualizationStore（卡片管理）
 │           ├── hooks/                # useGalaxyLayout, useVisibility
 │           └── utils/                # colorMap（分类颜色映射）
 ├── src-tauri/                        # Rust 后端

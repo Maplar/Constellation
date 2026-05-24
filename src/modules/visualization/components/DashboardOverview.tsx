@@ -45,7 +45,7 @@ function DraggableGrid({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="grid gap-4"
-      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}
+      style={{ gridTemplateColumns: "repeat(2, 1fr)" }}
     >
       {sorted.map((child) =>
         React.isValidElement(child)
@@ -90,33 +90,33 @@ function GraphCard({ title, mode, infoText, children, cardId, onDragStart, onDro
       onDrop={() => cardId && onDrop?.(cardId)}
       className="flex flex-col overflow-hidden transition-shadow duration-200"
       style={{
-        backgroundColor: "var(--color-cloud)",
-        borderRadius: 10,
-        border: "1px solid var(--color-paper-deep)",
-        boxShadow: isDragging ? "0 4px 16px rgba(0,0,0,0.12)" : "0 1px 3px rgba(0,0,0,0.04)",
+        backgroundColor: "var(--bg-secondary)",
+        borderRadius: "var(--radius)",
+        border: "1px solid var(--border)",
+        boxShadow: isDragging ? "var(--shadow-lg)" : "var(--shadow-sm)",
         height: 280,
         opacity: isDragging ? 0.6 : 1,
         cursor: cardId ? "grab" : "default",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)";
+        if (!isDragging) (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-md)";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)";
+        if (!isDragging) (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-sm)";
       }}
     >
-      {/* Title bar */}
+      {/* Title bar — 36px */}
       <div
         className="shrink-0 flex items-center justify-between px-3 h-9 border-b"
-        style={{ borderColor: "var(--color-paper-deep)" }}
+        style={{ borderColor: "var(--border)" }}
       >
-        <span className="text-[13px] font-medium" style={{ color: "var(--color-ink-soft)" }}>
+        <span className="text-[14px] font-medium" style={{ color: "var(--text-primary)" }}>
           {title}
         </span>
         <button
           onClick={() => setActiveMode(mode)}
-          className="text-[11px] px-2 py-0.5 rounded transition-colors cursor-pointer hover:bg-[var(--color-paper-warm)]"
-          style={{ color: "var(--color-bamboo)" }}
+          className="text-[12px] px-2 py-0.5 rounded transition-colors cursor-pointer hover:bg-[var(--bg-hover)]"
+          style={{ color: "var(--accent)" }}
           title="全屏展开"
         >
           全屏展开 →
@@ -128,10 +128,10 @@ function GraphCard({ title, mode, infoText, children, cardId, onDragStart, onDro
 
       {/* Info bar */}
       <div
-        className="shrink-0 px-3 h-6 flex items-center border-t"
-        style={{ borderColor: "var(--color-paper-deep)" }}
+        className="shrink-0 px-3 h-7 flex items-center border-t"
+        style={{ borderColor: "var(--border)" }}
       >
-        <span className="text-[10px]" style={{ color: "var(--color-ink-ghost)" }}>
+        <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>
           {infoText}
         </span>
       </div>
@@ -139,7 +139,7 @@ function GraphCard({ title, mode, infoText, children, cardId, onDragStart, onDro
   );
 }
 
-/* ── StatsBar (same as GraphDashboard but for overview) ── */
+/* ── StatsBar ── */
 function StatsBar({ noteCount, edgeCount, categoryCount, density }: {
   noteCount: number;
   edgeCount: number;
@@ -156,31 +156,32 @@ function StatsBar({ noteCount, edgeCount, categoryCount, density }: {
   );
 }
 
+/* ── StatCard: spec 28px bold, 13px label, padding 16px 20px, left accent bar 4px ── */
 function StatCard({ value, label }: { value: number | string; label: string }) {
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 flex-1 min-w-[120px]"
+      className="flex items-center gap-3 px-5 py-4 flex-1 min-w-[120px]"
       style={{
-        backgroundColor: "var(--color-cloud)",
-        borderRadius: 10,
-        border: "1px solid var(--color-paper-deep)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+        backgroundColor: "var(--bg-secondary)",
+        borderRadius: "var(--radius)",
+        border: "1px solid var(--border)",
+        boxShadow: "var(--shadow-sm)",
       }}
     >
       <div
-        className="w-1 h-10 rounded-full shrink-0"
-        style={{ backgroundColor: "var(--color-bamboo)" }}
+        className="w-1 h-8 rounded-full shrink-0"
+        style={{ backgroundColor: "var(--accent)" }}
       />
       <div>
         <div
           className="text-[28px] font-bold leading-none"
-          style={{ color: "var(--color-ink)" }}
+          style={{ color: "var(--text-primary)" }}
         >
           {value}
         </div>
         <div
           className="text-[13px] mt-1"
-          style={{ color: "var(--color-ink-faint)" }}
+          style={{ color: "var(--text-secondary)" }}
         >
           {label}
         </div>
@@ -192,7 +193,7 @@ function StatCard({ value, label }: { value: number | string; label: string }) {
 /* ── Category Distribution Donut Chart ── */
 function CategoryDistribution({ categories }: { categories: [string, number][] }) {
   const total = categories.reduce((sum, [, count]) => sum + count, 0);
-  if (total === 0) return <div className="p-3 text-[11px]" style={{ color: "var(--color-ink-ghost)" }}>暂无数据</div>;
+  if (total === 0) return <div className="p-3 text-[12px]" style={{ color: "var(--text-muted)" }}>暂无数据</div>;
 
   const cx = 80, cy = 80, r = 60, strokeWidth = 20;
   const circumference = 2 * Math.PI * r;
@@ -202,7 +203,7 @@ function CategoryDistribution({ categories }: { categories: [string, number][] }
     <div className="flex items-center gap-4 p-3 h-full">
       <svg width={160} height={160} viewBox="0 0 160 160">
         {/* Background ring */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-paper-warm)" strokeWidth={strokeWidth} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--bg-hover)" strokeWidth={strokeWidth} />
         {/* Category arcs */}
         {categories.map(([cat, count]) => {
           const fraction = count / total;
@@ -226,16 +227,16 @@ function CategoryDistribution({ categories }: { categories: [string, number][] }
           );
         })}
         {/* Center text */}
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="20" fontWeight="700" fill="var(--color-ink)">{total}</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="11" fill="var(--color-ink-faint)">笔记</text>
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="20" fontWeight="700" fill="var(--text-primary)">{total}</text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="11" fill="var(--text-secondary)">笔记</text>
       </svg>
       {/* Legend */}
       <div className="space-y-1.5 flex-1 min-w-0">
         {categories.map(([cat, count]) => (
           <div key={cat} className="flex items-center gap-1.5">
             <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(cat) }} />
-            <span className="text-[11px] truncate flex-1" style={{ color: "var(--color-ink-soft)" }}>{cat}</span>
-            <span className="text-[11px] font-mono" style={{ color: "var(--color-ink-ghost)" }}>{count}</span>
+            <span className="text-[12px] truncate flex-1" style={{ color: "var(--text-primary)" }}>{cat}</span>
+            <span className="text-[12px] font-mono" style={{ color: "var(--text-muted)" }}>{count}</span>
           </div>
         ))}
       </div>
@@ -287,7 +288,7 @@ export function DashboardOverview() {
           density={stats.density}
         />
 
-        {/* Responsive Grid with drag reordering */}
+        {/* Responsive Grid with drag reordering — 2 columns */}
         <DraggableGrid>
           <GraphCard
             title="文件关系图"

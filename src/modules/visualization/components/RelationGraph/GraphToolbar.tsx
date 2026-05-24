@@ -3,58 +3,137 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useGraphStore, type DimensionMode } from "../../stores/useGraphStore";
+import { useState } from "react";
+import type { DimensionMode } from "../../stores/useGraphStore";
 
 interface GraphToolbarProps {
-  onReset: () => void;
+  onDimensionChange?: (mode: DimensionMode) => void;
+  onForceStrengthChange?: (strength: number) => void;
+  onReset?: () => void;
+  defaultDimension?: DimensionMode;
+  defaultForceStrength?: number;
 }
 
-export function GraphToolbar({ onReset }: GraphToolbarProps) {
-  const { dimensionMode, toggleDimension, graphParams, updateGraphParams } = useGraphStore();
+export function GraphToolbar({
+  onDimensionChange,
+  onForceStrengthChange,
+  onReset,
+  defaultDimension = "2D",
+  defaultForceStrength = 1.0,
+}: GraphToolbarProps) {
+  const [mode, setMode] = useState<DimensionMode>(defaultDimension);
+  const [strength, setStrength] = useState(defaultForceStrength);
+
+  const handleModeChange = (next: DimensionMode) => {
+    if (next === mode) return;
+    setMode(next);
+    onDimensionChange?.(next);
+  };
+
+  const handleStrengthChange = (value: number) => {
+    setStrength(value);
+    onForceStrengthChange?.(value);
+  };
 
   return (
-    <>
-      <DimensionToggle value={dimensionMode} onChange={toggleDimension} />
-      <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--color-ink-ghost)" }}>
-        <span>力强度:</span>
+    <div
+      className="flex items-center gap-4 shrink-0 border-b"
+      style={{
+        height: 36,
+        padding: "0 16px",
+        backgroundColor: "var(--bg-secondary)",
+        borderColor: "var(--border)",
+      }}
+    >
+      {/* 2D / 3D 切换 */}
+      <DimensionToggle value={mode} onChange={handleModeChange} />
+
+      {/* 力强度滑块 */}
+      <div
+        className="flex items-center gap-2 h-7 rounded-md px-2"
+        style={{
+          backgroundColor: "var(--bg-hover)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <span
+          className="text-[11px] shrink-0 select-none"
+          style={{ color: "var(--text-muted)" }}
+        >
+          力度
+        </span>
         <input
           type="range"
-          min={10}
-          max={200}
-          value={Math.round(graphParams.forceStrength * 100)}
-          onChange={(e) => updateGraphParams({ forceStrength: Number(e.target.value) / 100 })}
-          className="w-16 h-1"
-          style={{ accentColor: "var(--color-bamboo)" }}
+          min={0.1}
+          max={2.0}
+          step={0.1}
+          value={strength}
+          onChange={(e) => handleStrengthChange(Number(e.target.value))}
+          className="w-16"
+          style={{ accentColor: "var(--accent)" }}
         />
+        <span
+          className="font-mono text-[10px] w-7 text-right shrink-0"
+          style={{ color: "var(--text-muted)" }}
+        >
+          {strength.toFixed(1)}
+        </span>
       </div>
+
+      {/* 填充 */}
       <div className="flex-1" />
-      <ToolbarButton onClick={onReset} title="重置布局">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+
+      {/* 重置布局 */}
+      <button
+        onClick={() => onReset?.()}
+        title="重置布局"
+        className="p-1 rounded transition-colors cursor-pointer"
+        style={{ color: "var(--text-muted)" }}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
           <path d="M3 3v5h5" />
         </svg>
-      </ToolbarButton>
-    </>
+      </button>
+    </div>
   );
 }
 
-function DimensionToggle({ value, onChange }: { value: DimensionMode; onChange: () => void }) {
+/* ── 内部 2D/3D 切换按钮组 ── */
+
+function DimensionToggle({
+  value,
+  onChange,
+}: {
+  value: DimensionMode;
+  onChange: (mode: DimensionMode) => void;
+}) {
   return (
     <div
-      className="flex rounded-md overflow-hidden border"
-      style={{ borderColor: "var(--color-paper-deep)" }}
+      className="flex rounded-md overflow-hidden border shrink-0"
+      style={{ borderColor: "var(--border)" }}
     >
       {(["2D", "3D"] as const).map((mode) => {
         const active = value === mode;
         return (
           <button
             key={mode}
-            onClick={() => { if (!active) onChange(); }}
-            className="px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer"
+            onClick={() => onChange(mode)}
+            className="px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer"
             style={{
-              backgroundColor: active ? "var(--color-bamboo-mist)" : "transparent",
-              color: active ? "var(--color-bamboo)" : "var(--color-ink-ghost)",
-              borderRight: mode === "2D" ? "1px solid var(--color-paper-deep)" : undefined,
+              backgroundColor: active ? "var(--accent-light)" : "transparent",
+              color: active ? "var(--accent)" : "var(--text-muted)",
+              borderRight:
+                mode === "2D" ? "1px solid var(--border)" : undefined,
             }}
           >
             {mode}
@@ -62,18 +141,5 @@ function DimensionToggle({ value, onChange }: { value: DimensionMode; onChange: 
         );
       })}
     </div>
-  );
-}
-
-function ToolbarButton({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="p-1.5 rounded-md transition-colors cursor-pointer hover:bg-[var(--color-paper-warm)]"
-      style={{ color: "var(--color-ink-ghost)" }}
-    >
-      {children}
-    </button>
   );
 }

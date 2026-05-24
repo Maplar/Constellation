@@ -6,6 +6,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import * as d3 from "d3";
 import { useNoteStore } from "../stores/useNoteStore";
+import { useGraphStore } from "../../visualization/stores/useGraphStore";
 import { getCategoryColor, getCategoryColorWithOpacity } from "../../visualization/utils/colorMap";
 
 interface ForceGraph2DProps {
@@ -62,11 +63,12 @@ function resolveThemeColors(): {
   };
 }
 
-function mapNodeSize(val: number, maxVal: number): number {
-  if (maxVal <= 0) return 12;
-  const minSize = 8;
-  const maxSize = 40;
-  return minSize + (val / maxVal) * (maxSize - minSize);
+/** 线性比例尺：val → radius，min 8px / max 40px */
+const radiusScale = d3.scaleLinear().domain([0, 1]).range([8, 40]).clamp(true);
+
+/** 截断标签：最多 8 个中文字符，超出加 "..." */
+function truncateLabel(label: string, max = 8): string {
+  return label.length > max ? label.slice(0, max) + "..." : label;
 }
 
 export function ForceGraph2D({
@@ -84,6 +86,7 @@ export function ForceGraph2D({
 
   const linkGraph = useNoteStore((s) => s.linkGraph);
   const notesMetadata = useNoteStore((s) => s.notesMetadata);
+  const setSelectedNode = useGraphStore((s) => s.setSelectedNode);
 
   const categoryMap = new Map<string, string>();
   for (const meta of notesMetadata) {
@@ -92,9 +95,10 @@ export function ForceGraph2D({
 
   const handleNodeClick = useCallback(
     (nodeId: string) => {
+      setSelectedNode(nodeId);
       onNodeClick?.(nodeId);
     },
-    [onNodeClick],
+    [onNodeClick, setSelectedNode],
   );
 
   useEffect(() => {
@@ -108,7 +112,6 @@ export function ForceGraph2D({
     if (width === 0 || height === 0) return;
 
     const colors = resolveThemeColors();
-    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     const svg = d3.select(svgEl);
 
     svg.selectAll("*").remove();
@@ -118,12 +121,27 @@ export function ForceGraph2D({
     const defs = svg.append("defs");
 
     // Glow filter for high-ref nodes
-    const glowFilter = defs.append("filter").attr("id", "node-glow").attr("x", "-50%").attr("y", "-50%").attr("width", "200%").attr("height", "200%");
-    glowFilter.append("feGaussianBlur").attr("stdDeviation", "4").attr("result", "blur");
-    glowFilter.append("feMerge").selectAll("feMergeNode").data(["blur", "SourceGraphic"]).join("feMergeNode").attr("in", (d: string) => d);
+    const glowFilter = defs
+      .append("filter")
+      .attr("id", "node-glow")
+      .attr("x", "-50%")
+      .attr("y", "-50%")
+      .attr("width", "200%")
+      .attr("height", "200%");
+    glowFilter
+      .append("feGaussianBlur")
+      .attr("stdDeviation", "4")
+      .attr("result", "blur");
+    glowFilter
+      .append("feMerge")
+      .selectAll("feMergeNode")
+      .data(["blur", "SourceGraphic"])
+      .join("feMergeNode")
+      .attr("in", (d: string) => d);
 
     // Arrow marker
-    defs.append("marker")
+    defs
+      .append("marker")
       .attr("id", "arrow")
       .attr("viewBox", "0 -4 8 8")
       .attr("refX", 8)
@@ -137,7 +155,8 @@ export function ForceGraph2D({
       .attr("opacity", 0.5);
 
     // Highlight arrow marker
-    defs.append("marker")
+    defs
+      .append("marker")
       .attr("id", "arrow-highlight")
       .attr("viewBox", "0 -4 8 8")
       .attr("refX", 8)
@@ -162,7 +181,9 @@ export function ForceGraph2D({
     svg.call(zoomBehavior);
 
     const maxVal = Math.max(...linkGraph.nodes.map((n) => n.val), 1);
-    const highRefCount = Math.max(3, maxVal * 0.3);
+
+    // 将全局 maxVal 归一化到 [0, 1] 区间供线性比例尺使用
+    radiusScale.domain([0, maxVal]);
 
     const simNodes: SimNode[] = linkGraph.nodes.map((n) => ({
       ...n,
@@ -189,10 +210,16 @@ export function ForceGraph2D({
       .join("path")
       .attr("fill", "none")
       .attr("stroke", (d: SimLink) => {
-        const srcNode = simNodes.find((n) => n.id === (typeof d.source === "string" ? d.source : d.source.id));
-        return srcNode ? getCategoryColorWithOpacity(srcNode.category, 0.25) : colors.link;
+        const srcNode = simNodes.find(
+          (n) => n.id === (typeof d.source === "string" ? d.source : d.source.id),
+        );
+        return srcNode
+          ? getCategoryColorWithOpacity(srcNode.category, 0.25)
+          : colors.link;
       })
-      .attr("stroke-width", (d: SimLink) => Math.min(2.5, Math.max(0.5, d.value * 1)))
+      .attr("stroke-width", (d: SimLink) =>
+        Math.min(2.5, Math.max(0.5, d.value * 1)),
+      )
       .attr("stroke-opacity", 0.5)
       .attr("marker-end", "url(#arrow)")
       .attr("stroke-dasharray", simplified ? "4,4" : "none");
@@ -222,7 +249,9 @@ export function ForceGraph2D({
       .on("mousemove", (event: MouseEvent) => {
         const rect = container.getBoundingClientRect();
         setTooltip((prev) =>
-          prev ? { ...prev, x: event.clientX - rect.left, y: event.clientY - rect.top } : prev,
+          prev
+            ? { ...prev, x: event.clientX - rect.left, y: event.clientY - rect.top }
+            : prev,
         );
       })
       .on("mouseleave", () => {
@@ -239,27 +268,24 @@ export function ForceGraph2D({
       .delay((_d, i) => i * 3)
       .attr("opacity", 1);
 
-    // Node circle with size mapping
+    // Node circle — 半径按 node.val 线性映射，填充色来自 colorMap
     nodeElements
       .append("circle")
-      .attr("r", (d: SimNode) => mapNodeSize(d.val, maxVal))
+      .attr("r", (d: SimNode) => radiusScale(d.val))
       .attr("fill", (d: SimNode) => d.color)
-      .attr("stroke", isDark ? "#222120" : "#ffffff")
-      .attr("stroke-width", 2)
-      .attr("filter", (d: SimNode) => (d.val >= highRefCount && !simplified ? "url(#node-glow)" : "none"));
+      .attr("stroke", "#ffffff")
+      .attr("stroke-width", 2);
 
-    // Node label
+    // Node label — 节点上方 4px，字体 11px，CSS 变量颜色
     nodeElements
       .append("text")
-      .text((d: SimNode) =>
-        d.label.length > 8 ? d.label.slice(0, 8) + "..." : d.label,
-      )
-      .attr("dy", (d: SimNode) => mapNodeSize(d.val, maxVal) + 14)
+      .text((d: SimNode) => truncateLabel(d.label))
+      .attr("dy", (d: SimNode) => -(radiusScale(d.val) + 4))
       .attr("text-anchor", "middle")
       .attr("font-size", 11)
-      .attr("fill", colors.text)
+      .attr("fill", "var(--text-primary)")
       .attr("font-family", '"Noto Sans SC", sans-serif')
-      .attr("opacity", (d: SimNode) => (d.val >= highRefCount ? 0.9 : 0));
+      .attr("opacity", 0.9);
 
     function updateHighlight() {
       const hovered = hoveredRef.current;
@@ -291,17 +317,40 @@ export function ForceGraph2D({
         return relatedIds.has(d.id) ? 1 : 0.2;
       });
 
+      nodeElements.select("circle").attr("stroke", (d: SimNode) => {
+        if (searchQuery && matchIds.has(d.id)) return "#3a7d5e";
+        return "#ffffff";
+      });
+
+      nodeElements.select("circle").attr("stroke-width", (d: SimNode) => {
+        if (searchQuery && matchIds.has(d.id)) return 3;
+        return 2;
+      });
+
       nodeElements.select("text").attr("opacity", (d: SimNode) => {
         if (searchQuery) return matchIds.has(d.id) ? 0.9 : 0.05;
-        const showLabel = d.val >= highRefCount || relatedIds.has(d.id);
-        if (!activeId) return showLabel ? 0.9 : 0;
+        if (!activeId) return 0.9;
         return relatedIds.has(d.id) ? 0.9 : 0.05;
+      });
+
+      // Hover scale: hovered node 1.2x, related nodes 1.1x
+      nodeElements.attr("transform", (d: SimNode) => {
+        const tx = (d as SimNode).x ?? 0;
+        const ty = (d as SimNode).y ?? 0;
+        let scale = 1;
+        if (hovered) {
+          if (d.id === hovered) scale = 1.2;
+          else if (relatedIds.has(d.id)) scale = 1.1;
+        }
+        return `translate(${tx},${ty}) scale(${scale})`;
       });
 
       linkElements
         .attr("stroke-opacity", (d: SimLink) => {
-          const srcId = typeof d.source === "string" ? d.source : d.source.id;
-          const tgtId = typeof d.target === "string" ? d.target : d.target.id;
+          const srcId =
+            typeof d.source === "string" ? d.source : d.source.id;
+          const tgtId =
+            typeof d.target === "string" ? d.target : d.target.id;
           if (searchQuery) {
             return matchIds.has(srcId) || matchIds.has(tgtId) ? 0.6 : 0.05;
           }
@@ -309,25 +358,33 @@ export function ForceGraph2D({
           return relatedIds.has(srcId) && relatedIds.has(tgtId) ? 0.8 : 0.08;
         })
         .attr("stroke", (d: SimLink) => {
-          const srcId = typeof d.source === "string" ? d.source : d.source.id;
-          const tgtId = typeof d.target === "string" ? d.target : d.target.id;
+          const srcId =
+            typeof d.source === "string" ? d.source : d.source.id;
+          const tgtId =
+            typeof d.target === "string" ? d.target : d.target.id;
           if (activeId && relatedIds.has(srcId) && relatedIds.has(tgtId)) {
             return colors.highlight;
           }
           const srcNode = simNodes.find((n) => n.id === srcId);
-          return srcNode ? getCategoryColorWithOpacity(srcNode.category, 0.25) : colors.link;
+          return srcNode
+            ? getCategoryColorWithOpacity(srcNode.category, 0.25)
+            : colors.link;
         })
         .attr("marker-end", (d: SimLink) => {
-          const srcId = typeof d.source === "string" ? d.source : d.source.id;
-          const tgtId = typeof d.target === "string" ? d.target : d.target.id;
+          const srcId =
+            typeof d.source === "string" ? d.source : d.source.id;
+          const tgtId =
+            typeof d.target === "string" ? d.target : d.target.id;
           if (activeId && relatedIds.has(srcId) && relatedIds.has(tgtId)) {
             return "url(#arrow-highlight)";
           }
           return "url(#arrow)";
         })
         .attr("stroke-dasharray", (d: SimLink) => {
-          const srcId = typeof d.source === "string" ? d.source : d.source.id;
-          const tgtId = typeof d.target === "string" ? d.target : d.target.id;
+          const srcId =
+            typeof d.source === "string" ? d.source : d.source.id;
+          const tgtId =
+            typeof d.target === "string" ? d.target : d.target.id;
           if (activeId && relatedIds.has(srcId) && relatedIds.has(tgtId)) {
             return "none";
           }
@@ -353,7 +410,7 @@ export function ForceGraph2D({
         "collide",
         d3
           .forceCollide<SimNode>()
-          .radius((d) => mapNodeSize(d.val, maxVal) + 8),
+          .radius((d) => radiusScale(d.val) + 8),
       )
       .force("x", d3.forceX(width / 2).strength(0.05))
       .force("y", d3.forceY(height / 2).strength(0.05))
@@ -364,16 +421,40 @@ export function ForceGraph2D({
           const tx = (d.target as SimNode).x ?? 0;
           const ty = (d.target as SimNode).y ?? 0;
           const dx = tx - sx;
-          const dy = ty - sy;
-          const dr = Math.sqrt(dx * dx + dy * dy) * 1.5;
+          const dy2 = ty - sy;
+          const dr = Math.sqrt(dx * dx + dy2 * dy2) * 1.5;
           return `M${sx},${sy}A${dr},${dr} 0 0,1 ${tx},${ty}`;
         });
 
-        nodeElements.attr(
-          "transform",
-          (d: SimNode) =>
-            `translate(${(d as SimNode).x ?? 0},${(d as SimNode).y ?? 0})`,
-        );
+        nodeElements.attr("transform", (d: SimNode) => {
+          const tx = (d as SimNode).x ?? 0;
+          const ty = (d as SimNode).y ?? 0;
+          const hovered = hoveredRef.current;
+          let scale = 1;
+          if (hovered) {
+            if (d.id === hovered) scale = 1.2;
+            else {
+              for (const edge of linkGraph.edges) {
+                const sid =
+                  typeof edge.source === "string"
+                    ? edge.source
+                    : (edge.source as SimNode).id;
+                const tid =
+                  typeof edge.target === "string"
+                    ? edge.target
+                    : (edge.target as SimNode).id;
+                if (
+                  (sid === hovered && tid === d.id) ||
+                  (tid === hovered && sid === d.id)
+                ) {
+                  scale = 1.1;
+                  break;
+                }
+              }
+            }
+          }
+          return `translate(${tx},${ty}) scale(${scale})`;
+        });
       });
 
     simRef.current = sim;
@@ -384,36 +465,42 @@ export function ForceGraph2D({
   }, [linkGraph, selectedNodeId, searchQuery, simplified, handleNodeClick, onNodeHover]);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-0 overflow-hidden relative">
+    <div
+      ref={containerRef}
+      className="w-full h-full min-h-0 overflow-hidden relative"
+    >
       <svg ref={svgRef} className="w-full h-full" />
       {/* Tooltip overlay */}
       {tooltip && (
         <div
-          className="absolute pointer-events-none z-20 px-3 py-2 rounded-lg shadow-lg"
+          className="absolute pointer-events-none z-20 px-3 py-2"
           style={{
             left: tooltip.x + 14,
             top: tooltip.y - 44,
-            backgroundColor: "var(--color-paper)",
-            border: "1px solid var(--color-paper-deep)",
+            backgroundColor: "var(--bg-secondary)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
             maxWidth: 220,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+            boxShadow: "var(--shadow-lg)",
           }}
         >
           <div
             className="text-[12px] font-medium whitespace-nowrap overflow-hidden text-ellipsis"
-            style={{ color: "var(--color-ink-soft)" }}
+            style={{ color: "var(--text-primary)" }}
           >
             {tooltip.label}
           </div>
           <div
             className="text-[10px] flex items-center gap-2 mt-0.5"
-            style={{ color: "var(--color-ink-ghost)" }}
+            style={{ color: "var(--text-muted)" }}
           >
             <span
               className="inline-block w-2 h-2 rounded-full shrink-0"
               style={{ backgroundColor: getCategoryColor(tooltip.category) }}
             />
-            <span className="truncate">{tooltip.category} · 引用 {tooltip.val} 次</span>
+            <span className="truncate">
+              {tooltip.category} · 引用 {tooltip.val} 次
+            </span>
           </div>
         </div>
       )}

@@ -244,11 +244,13 @@ export function runEditorUndo(
 interface MainWindowProps {
   initialSettingsOpen?: boolean;
   initialConfig?: AppConfig;
+  hideTitleBar?: boolean;
 }
 
 export function MainWindow({
   initialSettingsOpen = false,
   initialConfig = undefined,
+  hideTitleBar = false,
 }: MainWindowProps = {}) {
   const [notes, setNotes] = useState<NoteMetadata[]>([]);
   const [externalFiles, setExternalFiles] = useState<ExternalFile[]>([]);
@@ -1011,9 +1013,14 @@ export function MainWindow({
     void closeCurrentWindow();
   };
 
+  const outerClass = hideTitleBar
+    ? "flex-1 flex flex-col min-h-0"
+    : "w-full h-screen flex flex-col";
+
   return (
-    <div className="w-full h-screen flex flex-col">
+    <div className={outerClass}>
       <div className="noise-bg bg-cloud overflow-hidden flex flex-col flex-1">
+        {!hideTitleBar && (
         <div
           className="flex items-center justify-between pl-5 pr-0 h-11 bg-paper/60 border-b border-paper-deep/30 shrink-0 select-none cursor-default"
           onMouseDown={handleTitleBarDrag}
@@ -1143,6 +1150,7 @@ export function MainWindow({
             )}
           </div>
         </div>
+        )}
 
         <div className="flex flex-1 min-h-0 relative">
           {/* Mobile sidebar backdrop */}

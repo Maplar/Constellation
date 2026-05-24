@@ -17,6 +17,7 @@ export function RelationGraph() {
     searchQuery,
     selectedNodeId,
     activeFilters,
+    graphParams,
     selectNode,
     hoverNode,
   } = useGraphStore();
@@ -79,7 +80,7 @@ export function RelationGraph() {
     }
   }, [dimensionMode]);
 
-  const infoText = `当前: 文件关系图 | ${filteredNodes.length} 节点, ${filteredEdges.length} 边 | ${dimensionMode} 模式`;
+  const infoText = `当前: 文件关系图 | ${filteredNodes.length} 节点, ${filteredEdges.length} 边 | ${dimensionMode} 模式 | 力强度 ${graphParams.forceStrength.toFixed(1)}`;
 
   return (
     <CanvasContainer toolbar={<GraphToolbar onReset={handleReset} />} infoText={infoText}>

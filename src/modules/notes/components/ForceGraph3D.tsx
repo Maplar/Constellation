@@ -19,6 +19,7 @@ interface ForceGraph3DProps {
   maxNodes?: number;
   simplified?: boolean;
   categoryMap?: Map<string, string>;
+  searchQuery?: string;
 }
 
 interface SimNode3D extends d3Force3d.SimulationNodeDatum {
@@ -107,6 +108,7 @@ export function ForceGraph3D({
   maxNodes,
   simplified = false,
   categoryMap,
+  searchQuery = "",
 }: ForceGraph3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -354,11 +356,36 @@ export function ForceGraph3D({
           .radius((d: SimNode3D) => mapNodeSize(d.val, maxVal) + 4),
       )
       .on("tick", () => {
+        const searchLower = searchQuery.toLowerCase();
+        let matchIds: Set<string> | null = null;
+        if (searchQuery) {
+          matchIds = new Set<string>();
+          for (const simNode of simNodes) {
+            if (simNode.label.toLowerCase().includes(searchLower)) {
+              matchIds.add(simNode.id);
+            }
+          }
+        }
+
         for (const mesh of nodeMeshesRef.current.values()) {
           const nodeId = mesh.userData.noteId as string;
           const simNode = simNodeMap.get(nodeId);
           if (simNode) {
             mesh.position.set(simNode.x ?? 0, simNode.y ?? 0, simNode.z ?? 0);
+          }
+          if (mesh.material instanceof THREE.MeshPhongMaterial) {
+            if (matchIds && matchIds.has(nodeId)) {
+              mesh.material.emissive.set("#3a7d5e");
+              mesh.material.emissiveIntensity = 0.6;
+            } else if (matchIds) {
+              mesh.material.emissive.set(mesh.material.color);
+              mesh.material.emissiveIntensity = 0.2;
+              mesh.material.opacity = 0.15;
+            } else {
+              mesh.material.emissive.set(mesh.material.color);
+              mesh.material.emissiveIntensity = 0.3;
+              mesh.material.opacity = 1;
+            }
           }
         }
 
@@ -507,7 +534,7 @@ export function ForceGraph3D({
       simNodeMapRef.current.clear();
       setHoverInfo(null);
     };
-  }, [nodes, edges, selectedNoteId, maxNodes, simplified, handleNodeClick, onNodeHover]);
+  }, [nodes, edges, selectedNoteId, maxNodes, simplified, handleNodeClick, onNodeHover, searchQuery]);
 
   return (
     <div
