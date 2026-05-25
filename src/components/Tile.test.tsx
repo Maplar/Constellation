@@ -19,8 +19,7 @@ describe("Tile", () => {
     expect(markup).toContain("rounded-xl");
     expect(markup).toContain("background-color:#f6f3ec");
     expect(markup).not.toContain("bg-[#d8eee9]");
-    expect(markup).toContain("shadow-sm");
-    expect(markup).toContain("hover:shadow-md");
+    expect(markup).toContain("shadow-[");
     expect(markup).not.toContain("hover:scale");
     expect(markup).not.toContain("scale(");
     expect(markup).toContain("font-size:15px");

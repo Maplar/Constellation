@@ -10,14 +10,19 @@ export type AppMode = "edit" | "dashboard";
 
 interface AppModeState {
   mode: AppMode;
+  isEditingDashboard: boolean;
   setMode: (mode: AppMode) => void;
+  toggleEditingDashboard: () => void;
 }
 
 export const useAppModeStore = create<AppModeState>((set) => ({
   mode: "edit",
+  isEditingDashboard: false,
   setMode: (newMode) => {
     const { saveLayout } = useVisualizationStore.getState();
     saveLayout();
     set({ mode: newMode });
   },
+  toggleEditingDashboard: () =>
+    set((s) => ({ isEditingDashboard: !s.isEditingDashboard })),
 }));

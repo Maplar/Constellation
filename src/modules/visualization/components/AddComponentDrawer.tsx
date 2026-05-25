@@ -89,6 +89,17 @@ const CARD_METAS: CardMeta[] = [
     ),
     description: "Wiki-Link 链接总数",
   },
+  {
+    type: "summary-stats",
+    title: "统计概览",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+      </svg>
+    ),
+    description: "笔记总数·链接总数·分类总数一览",
+  },
 ];
 
 /* ── AddComponentDrawer ── */

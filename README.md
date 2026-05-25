@@ -10,18 +10,18 @@
 
 - **Markdown 编辑与预览** — 支持 GitHub Flavored Markdown 语法，三模式切换（编辑 / 分栏 / 预览）
 - **分类管理** — 文件夹子目录分类，支持新建、重命名、删除，笔记拖拽移动分类
-- **快捷便签** — 通过托盘或全局快捷键（Ctrl+Space / Alt+Space）随时唤出，支持窗口池预热复用
-- **磁贴模式** — 将笔记固定在桌面某处，置于顶层，支持跟随系统主题颜色
+- **快捷便签** — 全局快捷键（Ctrl+Space）唤出独立极简编辑器：独立标题输入+正文编辑区、自动预创建笔记、900ms 自动保存、窗口池预热复用（`notepad:activate` 确保每次全新空白）、一键关闭回池或转为磁贴、冷灰调独立视觉风格（#f3f5f8 / 钢蓝 accent）
+- **磁贴模式** — 将笔记固定在桌面某处，置于顶层，支持跟随系统主题颜色 + 深色模式自动适配（#191919），四角 SVG 角标，chroma-js 动态颜色混合，磁贴生命周期事件（`tile-window-closed` / `tile-window-unpinned`）
 - **自动保存** — 主窗口笔记与小窗笔记均支持 900ms 防抖自动保存
 - **外部文件引用** — 直接打开系统中任意 `.md` 文件，无需导入即可编辑
 - **导入导出** — 支持 `.md` 文件的导入和导出，可设为系统默认 Markdown 编辑器
 - **托盘菜单** — 关闭到托盘、开机自启、快速记录
-- **沉浸式标题栏** — 自绘窗口控制区域，与整体 UI 融合
+- **沉浸式标题栏** — 自绘窗口控制区域（无边框风格），支持最小化/最大化/关闭，顶栏可拖拽移动
 - **Wiki-Link 解析** — 支持 `[[笔记标题]]` 和 `[[笔记标题|别名]]` 语法，自动解析笔记间引用关系
 - **文件关系图谱** — 基于 d3-force 的 2D 力导向图谱，节点按引用次数线性映射 8~40px（d3.scaleLinear），分类填色（colorMap 10 色调色板 + 暗色模式自适应），白色 2px 描边，标签置顶 4px（11px / var(--text-primary) / 8 字截断），贝塞尔曲线边 + 方向箭头，hover 节点 1.2x + 关联节点 1.1x + 关联边加粗高亮，点击联动 store.setSelectedNode，GraphToolbar（36px / 力强度 0.1~2.0 / 重置）
 - **思维导图星系** — React SVG 组件化星系：StarNode（r:30px, CSS @keyframes pulse 呼吸动画 3s, 白描边 2px, d3-drag 可拖拽, 点击聚焦）、PlanetNode（r:6~18px d3.scaleLinear 按引用映射, SVG`<title>` 悬停标题, 白描边 1.5px）、OrbitRing（虚线圆 `stroke:var(--border) stroke-dasharray:4 4`）、GalaxyCanvas（全尺寸 SVG, 恒星圆周布局 + 行星多层环均匀分布, 跨分类贝塞尔虚线连线, 点击恒星聚焦 opacity 0.2 过渡, 缩放 0.2~3x + 平移）
 - **引用星团图** — 基于 d3-force 的 2D 力导向引用关系图，展示笔记间引用网络，支持简化模式嵌入卡片
-- **图谱仪表盘** — 动态卡片网格（ResizeObserver 1/2/3 列自适应）：文件关系图 2D（含力强度滑块工具栏）、思维导图星系（含轨道/连线工具栏）、2D 星团图、分类分布 SVG 环形图（含图例）、引用排行列表（含进度条）、笔记/链接统计卡片；仪表盘模式下顶栏搜索同步到图谱节点高亮
+- **图谱仪表盘** — 动态卡片网格（ResizeObserver 1/2/3 列自适应）：统计概览合并卡片、文件关系图、思维导图星系、星团图、分类分布环形图、引用排行；仪表盘编辑模式（TopBar 铅笔按钮切换，编辑模式下卡片显示红色 × 直删 + 底部「添加组件/保存布局」按钮）
 - **搜索增强** — 基于 Fuse.js 的模糊搜索 + 图谱节点高亮：2D 关系图 d3 选择器绿色描边高亮匹配节点 + 星系图行星 fill 颜色变化
 - **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储
 - **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页
@@ -131,22 +131,23 @@ src/
 | **笔记 CRUD** | 100% | 创建、读取、更新、删除，前端 API + Rust 后端完整 |
 | **分类管理** | 100% | 增删改查分类，笔记拖拽移动，元数据同步 |
 | **配置持久化** | 100% | 读写 config.json，修改后同步运行时（快捷键/自启） |
-| **多窗口** | 100% | 便签窗口池（预热 2 个）、磁贴窗口、边界动画 |
+| **多窗口** | 100% | QuickNote 独立便签（冷灰调视觉+窗口池复用+`recycleCurrentNotepad`）、磁贴窗口、自定义标题栏拖拽 |
 | **托盘** | 100% | 菜单项完整（显示、快速记录、开关键盘启动、退出） |
-| **全局快捷键** | 100% | Ctrl+Space / Alt+Space 唤出便签 |
+| **全局快捷键** | 100% | Ctrl+Space 唤出快捷便签，窗口池预热 2 个实例，`notepad:activate` 事件确保每次全新空白 |
 | **导入导出** | 100% | Markdown 双向导入导出，文件对话框集成 |
 | **外部文件引用** | 100% | 直接读写外部 .md 文件 |
 | **搜索** | 100% | 基于 Fuse.js 实现模糊搜索，支持相关性排序和关键词高亮 |
 | **AI 客户端** | 100% | 支持用户自定义 API Key，可对笔记内容进行 AI 总结 |
 | **AI 面板** | 100% | 模态框展示总结结果，支持复制到剪贴板 |
 | **Markdown→PDF** | 100% | 基于 html2pdf.js 实现，支持样式保留和分页 |
-| **图谱仪表盘** | 100% | GraphSidebar（240px/48px 折叠，视图切换+搜索+分类筛选+排序+图例+统计+节点详情），StatsBar（64px/28px 粗体统计），GraphDashboard 主布局，2×2 可拖拽卡片，CanvasContainer 画布外壳 |
+| **图谱仪表盘** | 100% | 1/2/3 列自适应卡片网格，统计概览合并卡片，编辑模式（铅笔按钮一键切换卡片添加/直删），拖拽排序+localStorage 布局持久化，AddComponentDrawer 右侧抽屉 |
 | **文件关系图谱** | 100% | 2D 力导向图，节点 8~40px 白色 2px 描边，11px 标签截断 8 字，贝塞尔曲线边+箭头，光晕效果，hover 高亮关联路径+tooltip，300ms 切换动画，力强度滑块 |
 | **思维导图星系** | 100% | 恒星（r:30px 呼吸脉动）/行星（r:6~18px）/轨道线拆分组件，d3-force 模拟，展开距离/轨道密度滑块，轨道/连线开关，点击聚焦分类，flow 动画，activeFilters 联动 |
 | **引用星团图** | 100% | 2D 力导向引用关系图，力强度可调，简化模式嵌入卡片 |
+| **磁贴系统** | 100% | 基于 chroma-js 动态颜色混合 + 四角 SVG 角标 + 磁贴生命周期事件（`tile-window-closed` / `tile-window-unpinned`）+ 原 Achilng 颜色算法对齐（luminance 0.18 + chroma.mix.alpha） |
 | **移动端** | 85% | 底部 TabBar、侧栏抽屉适配、触控优化、核心功能可用（磁贴/便签窗口暂不适用） |
 | **平台抽象层** | 100% | `src/modules/shared/platform/` 提供平台检测、usePlatform Hook、响应式尺寸订阅 |
-| **全局布局系统** | 100% | IconSidebar、TopBar、DashboardView (1/2/3列自适应+拖拽排序+持久化)、DashboardCard (hover关闭+draggable)；useAppModeStore；React.lazy+ErrorBoundary；搜索节点高亮 (2D/星系) |
+| **全局布局系统** | 100% | IconSidebar、TopBar（无边框窗口控制按钮+仪表盘编辑切换按钮）、DashboardView（1/2/3列自适应+拖拽排序+持久化+编辑模式直删+底部操控栏）、DashboardCard（hover关闭/编辑直删+draggable）、SummaryStatsCard（合并统计）、tileWindowEvents（磁贴生命周期）；useAppModeStore（含 isEditingDashboard）；React.lazy+ErrorBoundary |
 
 ## 项目结构
 
@@ -183,6 +184,7 @@ floral-notepaper/
 │       │   ├── surfaceMode.ts        # 便签↔磁贴切换
 │       │   ├── surfaceActions.ts     # 右键操作
 │       │   ├── tileContextMenu.ts    # 磁贴菜单
+│       │   ├── tileWindowEvents.ts   # 磁贴生命周期事件
 │       │   ├── noteSurfaceSavePolicy.ts
 │       │   └── windowRoutes.ts       # 视图路由
 │       ├── settings/                 # 设置模块
@@ -193,7 +195,7 @@ floral-notepaper/
 │           ├── components/
 │           │   ├── GraphDashboard    # 仪表盘主布局（StatsBar + 画布 + 底部控制栏）
 │           │   ├── GraphSidebar      # 侧边栏（视图切换 + 分类筛选 + 图例 + 统计）
-│           │   ├── cards/            # 卡片内容组件（RelationGraphCard, GalaxyCard, CategoryDonutCard, CitationRankingCard）
+│           │   ├── cards/            # 卡片内容组件（RelationGraphCard, GalaxyCard, CategoryDonutCard, CitationRankingCard, SummaryStatsCard）
 │           │   ├── RelationGraph/    # 文件关系图（GraphToolbar: 2D/3D 切换+力强度滑块+重置）
 │           │   ├── MindMapGalaxy/    # 思维导图星系（GalaxyCanvas+GalaxyToolbar+StarNode+PlanetNode+OrbitRing）
 │           │   └── shared/           # CanvasContainer, HoverTooltip

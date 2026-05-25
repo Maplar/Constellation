@@ -281,6 +281,15 @@ pub fn setup_desktop(app: &mut App) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn handle_window_event(window: &Window, event: &WindowEvent) {
+    if matches!(event, WindowEvent::Destroyed) {
+        if let Some(note_id) = window.label().strip_prefix("tile-") {
+            let _ = window
+                .app_handle()
+                .emit("tile-window-closed", note_id.to_string());
+        }
+        return;
+    }
+
     if window.label() != MAIN_WINDOW_LABEL {
         return;
     }
@@ -551,10 +560,10 @@ fn prewarm_notepad(app: &AppHandle) -> Result<(), AppError> {
 
 fn notepad_window_specs() -> WindowSizeSpec {
     WindowSizeSpec {
-        width: 260.0,
-        height: 260.0,
-        min_width: 220.0,
-        min_height: 220.0,
+        width: 360.0,
+        height: 320.0,
+        min_width: 300.0,
+        min_height: 240.0,
     }
 }
 
@@ -1001,10 +1010,10 @@ mod tests {
     fn keeps_notepad_initial_window_compact() {
         let specs = notepad_window_specs();
 
-        assert_eq!(specs.width, 260.0);
-        assert_eq!(specs.height, 260.0);
-        assert_eq!(specs.min_width, 220.0);
-        assert_eq!(specs.min_height, 220.0);
+        assert_eq!(specs.width, 360.0);
+        assert_eq!(specs.height, 320.0);
+        assert_eq!(specs.min_width, 300.0);
+        assert_eq!(specs.min_height, 240.0);
     }
 
     #[test]

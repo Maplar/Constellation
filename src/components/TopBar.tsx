@@ -15,6 +15,8 @@ interface TopBarProps {
 
 export function TopBar({ onOpenSettings }: TopBarProps) {
   const mode = useAppModeStore((s) => s.mode);
+  const isEditingDashboard = useAppModeStore((s) => s.isEditingDashboard);
+  const toggleEditingDashboard = useAppModeStore((s) => s.toggleEditingDashboard);
   const tauri = isTauriEnv();
   const { isMaximized, minimize, toggleMaximize, close } = useWindowControls();
 
@@ -41,6 +43,36 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
       {/* Right: search + buttons — not draggable */}
       <div data-tauri-drag-region={false} className="flex items-center gap-1">
         <TopBarSearch />
+
+        {/* Dashboard edit toggle — only in dashboard mode */}
+        {mode === "dashboard" && (
+          <button
+            onClick={toggleEditingDashboard}
+            className="win-btn w-9 h-9 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-150"
+            title={isEditingDashboard ? "完成编辑" : "编辑卡片"}
+            style={{
+              color: isEditingDashboard ? "#fff" : "#4a4a4a",
+              backgroundColor: isEditingDashboard ? "#3a7d5e" : "transparent",
+            }}
+            onMouseEnter={(e) => {
+              if (!isEditingDashboard) e.currentTarget.style.backgroundColor = "#e8e4db";
+            }}
+            onMouseLeave={(e) => {
+              if (!isEditingDashboard) e.currentTarget.style.backgroundColor = "transparent";
+            }}
+          >
+            {isEditingDashboard ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+            )}
+          </button>
+        )}
 
         {tauri && (
           <button
@@ -96,19 +128,19 @@ function WindowControls({
   onToggleMaximize,
   onClose,
 }: WindowControlsProps) {
-  const btnBase = "win-btn w-9 h-9 flex items-center justify-center rounded-lg cursor-pointer transition-colors text-[#6b6b6b]";
+  const btnBase = "win-btn w-9 h-9 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-150";
 
   return (
     <div className="flex gap-1 ml-1">
-      {/* Minimize — Lucide Minus */}
-      <button onClick={onMinimize} className={`${btnBase} hover:bg-[#e5e1d8]`} title="最小化">
+      {/* Minimize */}
+      <button onClick={onMinimize} className={`${btnBase} text-[#4a4a4a] hover:bg-[#e8e4db] hover:text-[#1a1a1a]`} title="最小化">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M5 12h14" />
         </svg>
       </button>
 
-      {/* Maximize / Restore — Square / Minimize2 */}
-      <button onClick={onToggleMaximize} className={`${btnBase} hover:bg-[#e5e1d8]`} title={isMaximized ? "还原" : "最大化"}>
+      {/* Maximize / Restore */}
+      <button onClick={onToggleMaximize} className={`${btnBase} text-[#4a4a4a] hover:bg-[#e8e4db] hover:text-[#1a1a1a]`} title={isMaximized ? "还原" : "最大化"}>
         {isMaximized ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
@@ -120,10 +152,10 @@ function WindowControls({
         )}
       </button>
 
-      {/* Close — Lucide X */}
+      {/* Close */}
       <button
         onClick={onClose}
-        className={`${btnBase} hover:bg-[#c0392b] hover:text-white`}
+        className={`${btnBase} text-[#4a4a4a] hover:bg-[#d64045] hover:text-white`}
         title="关闭"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

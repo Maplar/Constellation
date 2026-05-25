@@ -15,7 +15,8 @@ export type CardType =
   | "link-stats"
   | "category-distribution"
   | "citation-ranking"
-  | "citation-bubble";
+  | "citation-bubble"
+  | "summary-stats";
 
 export interface DashboardCardConfig {
   id: string;
@@ -39,6 +40,7 @@ export const CARD_CATALOG: CardCatalogEntry[] = [
   { type: "citation-ranking", title: "引用排行", width: "half", icon: "rank" },
   { type: "note-stats", title: "笔记统计", width: "half", icon: "stats" },
   { type: "link-stats", title: "链接统计", width: "half", icon: "link" },
+  { type: "summary-stats", title: "统计概览", width: "half", icon: "summary" },
 ];
 
 interface VisualizationState {

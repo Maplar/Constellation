@@ -3,7 +3,7 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useRef, useState, useEffect, useMemo, useCallback, type DragEvent } from "react";
+import { useRef, useState, useEffect, useCallback, type DragEvent } from "react";
 import { useVisualizationStore } from "../modules/visualization/stores/useVisualizationStore";
 import { useNoteStore } from "../modules/notes/stores/useNoteStore";
 import { useAppModeStore } from "../modules/shared/stores/useAppModeStore";
@@ -14,6 +14,7 @@ import { GalaxyCardContent } from "../modules/visualization/components/cards/Gal
 import { CategoryDonutCardContent } from "../modules/visualization/components/cards/CategoryDonutCard";
 import { CitationRankingCardContent } from "../modules/visualization/components/cards/CitationRankingCard";
 import { CitationBubbleCardContent } from "../modules/visualization/components/cards/CitationBubbleCard";
+import { SummaryStatsCardContent } from "../modules/visualization/components/cards/SummaryStatsCard";
 import type { CardType } from "../modules/visualization/stores/useVisualizationStore";
 
 function gridCols(width: number): number {
@@ -52,6 +53,8 @@ function CardContentSwitcher({ type }: { type: CardType }) {
       return <CitationRankingCardContent />;
     case "citation-bubble":
       return <CitationBubbleCardContent />;
+    case "summary-stats":
+      return <SummaryStatsCardContent />;
     default:
       return <div className="p-4 text-[12px]" style={{ color: "var(--text-muted)" }}>未知组件</div>;
   }
@@ -61,7 +64,7 @@ export function DashboardView() {
   const cards = useVisualizationStore((s) => s.cards);
   const removeCard = useVisualizationStore((s) => s.removeCard);
   const reorderCards = useVisualizationStore((s) => s.reorderCards);
-  const { mode } = useAppModeStore();
+  const isEditingDashboard = useAppModeStore((s) => s.isEditingDashboard);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [numCols, setNumCols] = useState(3);
@@ -122,8 +125,6 @@ export function DashboardView() {
   return (
     <div ref={containerRef} className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <SummaryBar />
-
         <div
           className="grid p-6"
           style={{ gap: 20, gridTemplateColumns: `repeat(${numCols}, 1fr)` }}
@@ -134,6 +135,7 @@ export function DashboardView() {
               id={card.id}
               title={card.title}
               width={card.width}
+              editing={isEditingDashboard}
               draggable
               isDragging={dragId === card.id}
               isDragOver={dragOverId === card.id}
@@ -164,145 +166,85 @@ export function DashboardView() {
           )}
 
           <div className="col-span-full h-16" />
+
+          {/* Inline controls — visible when editing */}
+          {isEditingDashboard && (
+            <div className="col-span-full">
+              <div className="flex items-center justify-center gap-3 pb-6">
+                <button
+                  onClick={() => setDrawerOpen(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 cursor-pointer"
+                  style={{
+                    backgroundColor: "#3a7d5e",
+                    color: "#fff",
+                    boxShadow: "0 2px 8px rgba(58,125,94,0.3)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow = "0 4px 16px rgba(58,125,94,0.4)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(58,125,94,0.3)";
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  添加组件
+                </button>
+                <button
+                  onClick={handleSaveLayout}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 cursor-pointer"
+                  style={{
+                    color: "#3a7d5e",
+                    border: "1.5px solid #3a7d5e",
+                    backgroundColor: "transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.backgroundColor = "#eaf5ef";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.backgroundColor = "transparent";
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17,21 17,13 7,13 7,21" />
+                    <polyline points="7,3 7,8 15,8" />
+                  </svg>
+                  保存布局
+                </button>
+              </div>
+              {toast && (
+                <div
+                  className="fixed z-50 px-5 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 animate-fade-in"
+                  style={{
+                    bottom: 32,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    backgroundColor: "#3a7d5e",
+                    color: "#fff",
+                    boxShadow: "0 4px 16px rgba(58,125,94,0.35)",
+                  }}
+                >
+                  {toast}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Edit button — visible only in dashboard mode */}
-      {mode !== "edit" && (
-        <button
-          onClick={() => useAppModeStore.getState().setMode("edit")}
-          className="fixed top-4 right-4 z-40 w-10 h-10 rounded-full bg-white shadow-md border border-[#e5e1d8] hover:bg-[#eaf5ef] flex items-center justify-center transition-colors duration-200 cursor-pointer"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3a7d5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-          </svg>
-        </button>
-      )}
-
-      {/* Circular Add Button — fixed position below topbar */}
-      {mode === "edit" && (
-        <>
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="fixed z-30 flex items-center justify-center transition-all duration-300 ease-out cursor-pointer"
-            style={{
-              top: 64,
-              right: 24,
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              backgroundColor: "#3a7d5e",
-              boxShadow: "0 2px 12px rgba(58,125,94,0.35)",
-              border: "none",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "scale(1.08)";
-              e.currentTarget.style.boxShadow = "0 4px 20px rgba(58,125,94,0.45)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "scale(1)";
-              e.currentTarget.style.boxShadow = "0 2px 12px rgba(58,125,94,0.35)";
-            }}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-
-          {/* Circular Save Button */}
-          <button
-            onClick={handleSaveLayout}
-            className="fixed z-30 flex items-center justify-center transition-all duration-300 ease-out cursor-pointer"
-            style={{
-              top: 64,
-              right: 84,
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              backgroundColor: "transparent",
-              boxShadow: "none",
-              border: "2px solid #3a7d5e",
-              color: "#3a7d5e",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "scale(1.08)";
-              e.currentTarget.style.backgroundColor = "#eaf5ef";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "scale(1)";
-              e.currentTarget.style.backgroundColor = "transparent";
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17,21 17,13 7,13 7,21" />
-              <polyline points="7,3 7,8 15,8" />
-            </svg>
-          </button>
-
-          {/* Toast */}
-          {toast && (
-            <div
-              className="fixed z-50 px-5 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 animate-fade-in"
-              style={{
-                top: 64,
-                right: 144,
-                backgroundColor: "#3a7d5e",
-                color: "#fff",
-                boxShadow: "0 4px 16px rgba(58,125,94,0.35)",
-              }}
-            >
-              {toast}
-            </div>
-          )}
-        </>
-      )}
+      {/* Resolved: old fixed-position edit/+add/save buttons deleted — moved to TopBar + inline grid */}
 
       {/* Drawer */}
       <AddComponentDrawer
         isOpen={isDrawerOpen}
         onClose={() => setDrawerOpen(false)}
       />
-    </div>
-  );
-}
-
-function SummaryBar() {
-  const { notesMetadata, wikiLinks } = useNoteStore();
-
-  const categoryCount = useMemo(() => {
-    const set = new Set(notesMetadata.map((n) => n.category || "未分类"));
-    return set.size;
-  }, [notesMetadata]);
-
-  const stats = [
-    { label: "笔记总数", value: notesMetadata.length },
-    { label: "链接总数", value: wikiLinks.length },
-    { label: "分类总数", value: categoryCount },
-  ];
-
-  return (
-    <div
-      className="shrink-0 flex items-center gap-6 px-4 h-16 border-b mx-6 mt-6 rounded-xl"
-      style={{
-        borderColor: "var(--border)",
-        backgroundColor: "var(--bg-secondary)",
-      }}
-    >
-      {stats.map((s) => (
-        <div key={s.label} className="flex items-center gap-3">
-          <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: "var(--accent)" }} />
-          <div>
-            <div className="text-[20px] font-bold leading-none" style={{ color: "var(--text-primary)" }}>
-              {s.value}
-            </div>
-            <div className="text-[12px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-              {s.label}
-            </div>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

@@ -8,6 +8,7 @@
 
 import chroma from "chroma-js";
 import type { CSSProperties, HTMLAttributes } from "react";
+import { useMemo } from "react";
 import {
   DEFAULT_TILE_COLOR,
   normalizeTileColor,
@@ -87,16 +88,19 @@ export function Tile({
   ...divProps
 }: TileProps) {
   const tileColor = normalizeTileColor(color);
-  const isLight = chroma(tileColor).luminance() > 0.5;
-  const textColor = isLight ? "#1a1a1a" : "#ffffff";
-  const borderColor = chroma(tileColor).darken(0.2).alpha(0.3).css();
-  const cornerColor = chroma.mix(tileColor, textColor, 0.3).alpha(0.4).css();
-  const titleColor = chroma.mix(tileColor, textColor, 0.45).alpha(0.55).css();
-  const contentColor = chroma.mix(tileColor, textColor, 0.7).alpha(0.88).css();
-  const emptyColor = chroma.mix(tileColor, textColor, 0.25).alpha(0.4).css();
+  const { borderColor, cornerColor, titleColor, contentColor, emptyColor } = useMemo(() => {
+    const isLightBg = chroma(tileColor).luminance() > 0.18;
+    const mixTarget = isLightBg ? "#1a1a18" : "#ffffff";
+    return {
+      borderColor: chroma.mix(tileColor, mixTarget, 0.18).alpha(0.55).css(),
+      cornerColor: chroma.mix(tileColor, mixTarget, 0.3).alpha(0.26).css(),
+      titleColor: chroma.mix(tileColor, mixTarget, 0.4).alpha(0.5).css(),
+      contentColor: chroma.mix(tileColor, mixTarget, 0.65).alpha(0.85).css(),
+      emptyColor: chroma.mix(tileColor, mixTarget, 0.25).alpha(0.4).css(),
+    };
+  }, [tileColor]);
   const mergedStyle: CSSProperties = {
     width,
-    height: width,
     backgroundColor: tileColor,
     borderColor,
     transition: "box-shadow 0.3s ease",
@@ -107,7 +111,7 @@ export function Tile({
   return (
     <div
       {...divProps}
-      className={`relative rounded-xl border overflow-hidden select-none shadow-sm hover:shadow-md transition-shadow ${className}`}
+      className={`relative rounded-xl border overflow-hidden select-none shadow-[0_1px_8px_rgba(26,26,24,0.04)] hover:shadow-[0_6px_24px_rgba(26,26,24,0.07)] transition-shadow ${className}`}
       style={mergedStyle}
     >
       {onClose && (

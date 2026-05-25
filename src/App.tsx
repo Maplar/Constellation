@@ -31,8 +31,6 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 // ─── 桌面端布局 ────────────────────────────────────────────────────────────
 
 function DesktopApp() {
-  const route = getInitialRoute();
-  const activeView = route.view;
   const mode = useAppModeStore((s) => s.mode);
   const [settingsConfig, setSettingsConfig] = useState<AppConfig | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -74,30 +72,6 @@ function DesktopApp() {
       handleSettingsChange({ ...settingsConfig, notesDir: dir });
     }
   };
-
-  if (activeView === "notepad") {
-    return (
-      <div className="h-screen font-body text-ink overflow-hidden">
-        <NotePad initialNoteId={route.noteId} />
-      </div>
-    );
-  }
-
-  if (activeView === "tile") {
-    return (
-      <div className="h-screen font-body text-ink overflow-hidden">
-        <TileShowcase noteId={route.noteId} />
-      </div>
-    );
-  }
-
-  if (activeView === "graph") {
-    return (
-      <div className="h-screen font-body text-ink overflow-hidden">
-        <GraphView />
-      </div>
-    );
-  }
 
   return (
     <div className="h-screen font-body text-ink overflow-hidden flex flex-col">
@@ -263,8 +237,41 @@ async function persistSettings(config: AppConfig): Promise<void> {
 // ─── 根组件 ────────────────────────────────────────────────────────────────
 
 function App() {
+  const route = getInitialRoute();
   const { isMobile } = usePlatform();
 
+  // 特殊视图路由优先 — 无论窗口大小/平台，直接渲染
+  if (route.view === "notepad") {
+    return (
+      <ContextMenuProvider>
+        <div className="h-screen font-body text-ink overflow-hidden">
+          <NotePad initialNoteId={route.noteId} />
+        </div>
+      </ContextMenuProvider>
+    );
+  }
+
+  if (route.view === "tile") {
+    return (
+      <ContextMenuProvider>
+        <div className="h-screen font-body text-ink overflow-hidden">
+          <TileShowcase noteId={route.noteId} />
+        </div>
+      </ContextMenuProvider>
+    );
+  }
+
+  if (route.view === "graph") {
+    return (
+      <ContextMenuProvider>
+        <div className="h-screen font-body text-ink overflow-hidden">
+          <GraphView />
+        </div>
+      </ContextMenuProvider>
+    );
+  }
+
+  // 主界面：按平台分发
   return (
     <ContextMenuProvider>
       {isMobile ? <MobileApp /> : <DesktopApp />}

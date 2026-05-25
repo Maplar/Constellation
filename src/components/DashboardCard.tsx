@@ -12,6 +12,7 @@ export interface DashboardCardProps {
   width: CardWidth;
   onClose?: (id: string) => void;
   children?: ReactNode;
+  editing?: boolean;
   draggable?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
@@ -27,6 +28,7 @@ export function DashboardCard({
   width,
   onClose,
   children,
+  editing = false,
   draggable = false,
   isDragging = false,
   isDragOver = false,
@@ -37,8 +39,13 @@ export function DashboardCard({
 }: DashboardCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const showClose = editing || isHovered;
 
   const handleClose = () => {
+    if (editing) {
+      onClose?.(id);
+      return;
+    }
     if (confirmDelete) {
       onClose?.(id);
       setConfirmDelete(false);
@@ -99,13 +106,13 @@ export function DashboardCard({
         }}
         className="absolute top-2 right-2 z-10 w-6 h-6 flex items-center justify-center rounded-full cursor-pointer transition-all duration-200"
         style={{
-          opacity: isHovered ? 1 : 0,
-          backgroundColor: confirmDelete ? "#c0392b" : "rgba(192, 57, 43, 0.15)",
-          color: confirmDelete ? "#fff" : "#c0392b",
-          transform: isHovered ? "scale(1)" : "scale(0.7)",
-          pointerEvents: isHovered ? "auto" : "none",
+          opacity: showClose ? 1 : 0,
+          backgroundColor: editing ? "#c0392b" : confirmDelete ? "#c0392b" : "rgba(192, 57, 43, 0.15)",
+          color: editing ? "#fff" : confirmDelete ? "#fff" : "#c0392b",
+          transform: showClose ? "scale(1)" : "scale(0.7)",
+          pointerEvents: showClose ? "auto" : "none",
         }}
-        title={confirmDelete ? "确认删除" : "移除卡片"}
+        title={editing ? "删除卡片" : confirmDelete ? "确认删除" : "移除卡片"}
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
           <path d="M18 6L6 18M6 6l12 12" />
