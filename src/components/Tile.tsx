@@ -21,6 +21,7 @@ export interface TileProps
   width?: number | string;
   rotation?: number;
   fontSize?: number;
+  onClose?: () => void;
 }
 
 const MARK_SIZE = 8;
@@ -82,18 +83,20 @@ export function Tile({
   className = "",
   style,
   children,
+  onClose,
   ...divProps
 }: TileProps) {
   const tileColor = normalizeTileColor(color);
-  const isLightBg = chroma(tileColor).luminance() > 0.18;
-  const mixTarget = isLightBg ? "#1a1a18" : "#ffffff";
-  const borderColor = chroma.mix(tileColor, mixTarget, 0.18).alpha(0.3).css();
-  const cornerColor = chroma.mix(tileColor, mixTarget, 0.3).alpha(0.26).css();
-  const titleColor = chroma.mix(tileColor, mixTarget, 0.4).alpha(0.5).css();
-  const contentColor = chroma.mix(tileColor, mixTarget, 0.65).alpha(0.85).css();
-  const emptyColor = chroma.mix(tileColor, mixTarget, 0.25).alpha(0.4).css();
+  const isLight = chroma(tileColor).luminance() > 0.5;
+  const textColor = isLight ? "#1a1a1a" : "#ffffff";
+  const borderColor = chroma(tileColor).darken(0.2).alpha(0.3).css();
+  const cornerColor = chroma.mix(tileColor, textColor, 0.3).alpha(0.4).css();
+  const titleColor = chroma.mix(tileColor, textColor, 0.45).alpha(0.55).css();
+  const contentColor = chroma.mix(tileColor, textColor, 0.7).alpha(0.88).css();
+  const emptyColor = chroma.mix(tileColor, textColor, 0.25).alpha(0.4).css();
   const mergedStyle: CSSProperties = {
     width,
+    height: width,
     backgroundColor: tileColor,
     borderColor,
     transition: "box-shadow 0.3s ease",
@@ -104,9 +107,23 @@ export function Tile({
   return (
     <div
       {...divProps}
-      className={`relative rounded-xl border overflow-hidden select-none shadow-[0_1px_8px_rgba(26,26,24,0.04)] hover:shadow-[0_6px_24px_rgba(26,26,24,0.07)] ${className}`}
+      className={`relative rounded-xl border overflow-hidden select-none shadow-sm hover:shadow-md transition-shadow ${className}`}
       style={mergedStyle}
     >
+      {onClose && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="absolute top-2 right-2 z-10 w-6 h-6 flex items-center justify-center rounded-md text-[12px] leading-none text-white/60 hover:text-white hover:bg-[#c0392b] transition-all duration-150 cursor-pointer"
+          title="关闭"
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      )}
       <div className="px-4 pt-4 pb-4 h-full overflow-y-auto scrollbar-hidden">
         {title && (
           <div className="font-display tracking-wide mb-3 leading-snug" style={{ color: titleColor, fontSize: `${fontSize + 1}px` }}>

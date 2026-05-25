@@ -57,10 +57,10 @@ export interface NoteListPanelProps {
 
 export function NoteListPanel(props: NoteListPanelProps) {
   const {
-    filteredNotes,
-    categoryGroups,
-    externalFiles,
-    searchQuery,
+    filteredNotes = [],
+    categoryGroups = [],
+    externalFiles = [],
+    searchQuery = "",
     selectedId,
     hoveredId,
     isMobile,

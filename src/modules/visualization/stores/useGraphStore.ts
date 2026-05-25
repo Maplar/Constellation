@@ -5,24 +5,20 @@
 
 import { create } from "zustand";
 
-export type GraphMode = "relation" | "galaxy" | "starcluster" | "dashboard";
-export type DimensionMode = "2D" | "3D";
+export type GraphMode = "relation" | "galaxy" | "dashboard";
 
 export interface GraphParams {
-  forceStrength: number;   // 0.1 ~ 2.0, 默认 1.0
-  orbitDistance: number;   // 星系展开距离 100 ~ 500, 默认 200
-  orbitDensity: boolean;   // 显示轨道线
-  showLinks: boolean;      // 显示 Wiki-Link 连线
-  autoRotate: boolean;     // 3D 自动旋转
-  glowIntensity: number;   // 0 ~ 1.0
-  particleCount: number;   // 粒子数量 100 ~ 1000
+  forceStrength: number;     // 0.1 ~ 2.0, 默认 1.0
+  orbitDistance: number;     // 星系展开距离 100 ~ 500, 默认 200
+  orbitDensity: boolean;     // 显示轨道线
+  showLinks: boolean;        // 显示 Wiki-Link 连线
+  nodeRadiusScale: number;   // 节点半径缩放 0.5 ~ 2.0, 默认 1.0
 }
 
 interface GraphState {
   /* ── 视图状态 ── */
   activeMode: GraphMode;
   activeView: GraphMode;                       // 别名，与 activeMode 同步
-  dimensionMode: DimensionMode;
   sidebarCollapsed: boolean;
 
   /* ── 选择与悬停 ── */
@@ -39,7 +35,6 @@ interface GraphState {
   /* ── 动作 ── */
   setActiveMode: (mode: GraphMode) => void;
   setActiveView: (view: GraphMode) => void;    // 别名
-  toggleDimension: () => void;
   toggleSidebar: () => void;
   selectNode: (id: string | null) => void;
   setSelectedNode: (id: string | null) => void; // 别名
@@ -54,7 +49,6 @@ export const useGraphStore = create<GraphState>((set) => ({
   /* ── 视图状态 ── */
   activeMode: "relation",
   activeView: "relation",
-  dimensionMode: "2D",
   sidebarCollapsed: false,
 
   /* ── 选择与悬停 ── */
@@ -71,9 +65,7 @@ export const useGraphStore = create<GraphState>((set) => ({
     orbitDistance: 200,
     orbitDensity: true,
     showLinks: true,
-    autoRotate: true,
-    glowIntensity: 0.6,
-    particleCount: 500,
+    nodeRadiusScale: 1.0,
   },
 
   /* ── 动作 ── */
@@ -82,11 +74,6 @@ export const useGraphStore = create<GraphState>((set) => ({
 
   setActiveView: (view) =>
     set({ activeView: view, activeMode: view }),
-
-  toggleDimension: () =>
-    set((state) => ({
-      dimensionMode: state.dimensionMode === "2D" ? "3D" : "2D",
-    })),
 
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),

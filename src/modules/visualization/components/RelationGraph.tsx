@@ -3,17 +3,15 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useRef, useCallback, useMemo, useState, useEffect } from "react";
+import { useRef, useCallback, useMemo } from "react";
 import { useGraphStore } from "../stores/useGraphStore";
 import { useNoteStore } from "../../notes/stores/useNoteStore";
 import { ForceGraph2D } from "../../notes/components/ForceGraph2D";
-import { ForceGraph3D } from "../../notes/components/ForceGraph3D";
 import { CanvasContainer } from "./shared/CanvasContainer";
 import { GraphToolbar } from "./RelationGraph/GraphToolbar";
 
 export function RelationGraph() {
   const {
-    dimensionMode,
     searchQuery,
     selectedNodeId,
     activeFilters,
@@ -21,10 +19,9 @@ export function RelationGraph() {
     selectNode,
     hoverNode,
   } = useGraphStore();
-  const { linkGraph, notesMetadata, selectedNoteId, selectNote } =
+  const { linkGraph, notesMetadata, selectNote } =
     useNoteStore();
   const graphKey = useRef(0);
-  const [transitioning, setTransitioning] = useState(false);
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -69,49 +66,20 @@ export function RelationGraph() {
     selectNode(null);
   }, [selectNode]);
 
-  /* ── Dimension switch with 300ms transition ── */
-  const prevDimRef = useRef(dimensionMode);
-  useEffect(() => {
-    if (prevDimRef.current !== dimensionMode) {
-      prevDimRef.current = dimensionMode;
-      setTransitioning(true);
-      const timer = setTimeout(() => setTransitioning(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [dimensionMode]);
-
-  const infoText = `当前: 文件关系图 | ${filteredNodes.length} 节点, ${filteredEdges.length} 边 | ${dimensionMode} 模式 | 力强度 ${graphParams.forceStrength.toFixed(1)}`;
+  const infoText = `当前: 文件关系图 | ${filteredNodes.length} 节点, ${filteredEdges.length} 边 | 2D 模式 | 力强度 ${graphParams.forceStrength.toFixed(1)}`;
 
   return (
     <CanvasContainer toolbar={<GraphToolbar onReset={handleReset} />} infoText={infoText}>
-      <div
-        className="w-full h-full relative"
-        style={{
-          opacity: transitioning ? 0 : 1,
-          transition: "opacity 0.3s ease",
-        }}
-      >
-        {dimensionMode === "3D" ? (
-          <ForceGraph3D
-            key={`3d-${graphKey.current}`}
-            nodes={filteredNodes}
-            edges={filteredEdges}
-            selectedNoteId={selectedNoteId}
-            maxNodes={150}
-            onNodeClick={handleNodeClick}
-            onNodeHover={handleNodeHover}
-            categoryMap={categoryMap}
-          />
-        ) : (
-          <ForceGraph2D
-            key={`2d-${graphKey.current}`}
-            onNodeClick={handleNodeClick}
-            searchQuery={searchQuery}
-            selectedNodeId={selectedNodeId}
-            hoveredNodeId={null}
-            onNodeHover={handleNodeHover}
-          />
-        )}
+      <div className="w-full h-full relative">
+        <ForceGraph2D
+          key={`2d-${graphKey.current}`}
+          onNodeClick={handleNodeClick}
+          searchQuery={searchQuery}
+          selectedNodeId={selectedNodeId}
+          hoveredNodeId={null}
+          onNodeHover={handleNodeHover}
+          radiusScale={graphParams.nodeRadiusScale}
+        />
       </div>
     </CanvasContainer>
   );

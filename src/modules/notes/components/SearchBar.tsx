@@ -19,7 +19,7 @@ export function SearchBar({
   debounceMs = 200,
 }: SearchBarProps) {
   const searchQuery = useNoteStore((s) => s.searchQuery);
-  const searchResults = useNoteStore((s) => s.searchResults);
+  const searchResults = useNoteStore((s) => s.searchResults) ?? [];
   const setSearchQuery = useNoteStore((s) => s.setSearchQuery);
 
   const [inputValue, setInputValue] = useState(searchQuery);
@@ -27,10 +27,9 @@ export function SearchBar({
 
   // Sync debounced value to store
   useEffect(() => {
-    if (debouncedValue !== searchQuery) {
-      setSearchQuery(debouncedValue);
-    }
-  }, [debouncedValue, searchQuery, setSearchQuery]);
+    setSearchQuery(debouncedValue);
+    // setSearchQuery is stable (zustand selector)
+  }, [debouncedValue]);
 
   // Sync store → local (handles clear from external sources)
   useEffect(() => {

@@ -16,6 +16,7 @@ interface ForceGraph2DProps {
   hoveredNodeId?: string | null;
   onNodeHover?: (nodeId: string | null) => void;
   simplified?: boolean;
+  radiusScale?: number;
 }
 
 interface SimNode extends d3.SimulationNodeDatum {
@@ -64,7 +65,7 @@ function resolveThemeColors(): {
 }
 
 /** 线性比例尺：val → radius，min 8px / max 40px */
-const radiusScale = d3.scaleLinear().domain([0, 1]).range([8, 40]).clamp(true);
+const valToRadius = d3.scaleLinear().domain([0, 1]).range([8, 40]).clamp(true);
 
 /** 截断标签：最多 8 个中文字符，超出加 "..." */
 function truncateLabel(label: string, max = 8): string {
@@ -77,11 +78,14 @@ export function ForceGraph2D({
   selectedNodeId,
   onNodeHover,
   simplified = false,
+  radiusScale = 1.0,
 }: ForceGraph2DProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const simRef = useRef<d3.Simulation<SimNode, SimLink> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hoveredRef = useRef<string | null>(null);
+  const radiusScaleRef = useRef(radiusScale);
+  radiusScaleRef.current = radiusScale;
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
 
   const linkGraph = useNoteStore((s) => s.linkGraph);
@@ -183,7 +187,7 @@ export function ForceGraph2D({
     const maxVal = Math.max(...linkGraph.nodes.map((n) => n.val), 1);
 
     // 将全局 maxVal 归一化到 [0, 1] 区间供线性比例尺使用
-    radiusScale.domain([0, maxVal]);
+    valToRadius.domain([0, maxVal]);
 
     const simNodes: SimNode[] = linkGraph.nodes.map((n) => ({
       ...n,
@@ -271,16 +275,21 @@ export function ForceGraph2D({
     // Node circle — 半径按 node.val 线性映射，填充色来自 colorMap
     nodeElements
       .append("circle")
-      .attr("r", (d: SimNode) => radiusScale(d.val))
+      .attr("r", (d: SimNode) => valToRadius(d.val) * radiusScaleRef.current)
       .attr("fill", (d: SimNode) => d.color)
       .attr("stroke", "#ffffff")
-      .attr("stroke-width", 2);
+      .attr("stroke-width", 2)
+      .each(function () {
+        d3.select(this).attr("data-original-r", function () {
+          return d3.select(this).attr("r");
+        });
+      });
 
     // Node label — 节点上方 4px，字体 11px，CSS 变量颜色
     nodeElements
       .append("text")
       .text((d: SimNode) => truncateLabel(d.label))
-      .attr("dy", (d: SimNode) => -(radiusScale(d.val) + 4))
+      .attr("dy", (d: SimNode) => -(valToRadius(d.val) * radiusScaleRef.current + 4))
       .attr("text-anchor", "middle")
       .attr("font-size", 11)
       .attr("fill", "var(--text-primary)")
@@ -410,7 +419,7 @@ export function ForceGraph2D({
         "collide",
         d3
           .forceCollide<SimNode>()
-          .radius((d) => radiusScale(d.val) + 8),
+          .radius((d) => valToRadius(d.val) * radiusScaleRef.current + 8),
       )
       .force("x", d3.forceX(width / 2).strength(0.05))
       .force("y", d3.forceY(height / 2).strength(0.05))
@@ -463,6 +472,34 @@ export function ForceGraph2D({
       sim.stop();
     };
   }, [linkGraph, selectedNodeId, searchQuery, simplified, handleNodeClick, onNodeHover]);
+
+  /* ── 节点缩放实时更新 ── */
+  useEffect(() => {
+    const svgEl = svgRef.current;
+    if (!svgEl) return;
+    const svg = d3.select(svgEl);
+    const nodeGroup = svg.select("g.nodes");
+    if (nodeGroup.empty()) return;
+
+    const scale = radiusScaleRef.current;
+
+    nodeGroup.selectAll<SVGCircleElement, SimNode>("g circle").attr("r", (d) => valToRadius(d.val) * scale);
+
+    nodeGroup.selectAll<SVGTextElement, SimNode>("g text").attr("dy", (d) => -(valToRadius(d.val) * scale + 4));
+
+    const sim = simRef.current;
+    if (sim) {
+      sim
+        .force(
+          "collide",
+          d3
+            .forceCollide<SimNode>()
+            .radius((d) => valToRadius(d.val) * scale + 8),
+        )
+        .alpha(0.1)
+        .restart();
+    }
+  }, [radiusScale]);
 
   return (
     <div

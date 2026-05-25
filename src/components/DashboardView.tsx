@@ -4,15 +4,17 @@
  */
 
 import { useRef, useState, useEffect, useMemo, useCallback, type DragEvent } from "react";
-import { useVisualizationStore, CARD_CATALOG } from "../modules/visualization/stores/useVisualizationStore";
-import type { CardType } from "../modules/visualization/stores/useVisualizationStore";
+import { useVisualizationStore } from "../modules/visualization/stores/useVisualizationStore";
 import { useNoteStore } from "../modules/notes/stores/useNoteStore";
+import { useAppModeStore } from "../modules/shared/stores/useAppModeStore";
 import { DashboardCard } from "./DashboardCard";
+import { AddComponentDrawer } from "../modules/visualization/components/AddComponentDrawer";
 import { RelationGraphCardContent } from "../modules/visualization/components/cards/RelationGraphCard";
 import { GalaxyCardContent } from "../modules/visualization/components/cards/GalaxyCard";
 import { CategoryDonutCardContent } from "../modules/visualization/components/cards/CategoryDonutCard";
 import { CitationRankingCardContent } from "../modules/visualization/components/cards/CitationRankingCard";
-import { StarClusterCardContent } from "../modules/visualization/components/cards/StarClusterCard";
+import { CitationBubbleCardContent } from "../modules/visualization/components/cards/CitationBubbleCard";
+import type { CardType } from "../modules/visualization/stores/useVisualizationStore";
 
 function gridCols(width: number): number {
   if (width < 750) return 1;
@@ -40,8 +42,6 @@ function CardContentSwitcher({ type }: { type: CardType }) {
       return <RelationGraphCardContent />;
     case "mindmap-galaxy":
       return <GalaxyCardContent />;
-    case "starcluster":
-      return <StarClusterCardContent />;
     case "note-stats":
       return <StatCardContent value={notesMetadata.length} label="笔记总数" />;
     case "link-stats":
@@ -50,6 +50,8 @@ function CardContentSwitcher({ type }: { type: CardType }) {
       return <CategoryDonutCardContent />;
     case "citation-ranking":
       return <CitationRankingCardContent />;
+    case "citation-bubble":
+      return <CitationBubbleCardContent />;
     default:
       return <div className="p-4 text-[12px]" style={{ color: "var(--text-muted)" }}>未知组件</div>;
   }
@@ -57,15 +59,15 @@ function CardContentSwitcher({ type }: { type: CardType }) {
 
 export function DashboardView() {
   const cards = useVisualizationStore((s) => s.cards);
-  const addCard = useVisualizationStore((s) => s.addCard);
   const removeCard = useVisualizationStore((s) => s.removeCard);
   const reorderCards = useVisualizationStore((s) => s.reorderCards);
+  const { mode } = useAppModeStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [numCols, setNumCols] = useState(3);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [isDrawerOpen, setDrawerOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  // Drag state
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -112,11 +114,13 @@ export function DashboardView() {
     return () => ro.disconnect();
   }, [updateCols]);
 
-  const addedTypes = new Set(cards.map((c) => c.type));
-  const availableTypes = CARD_CATALOG.filter((c) => !addedTypes.has(c.type));
+  const handleSaveLayout = useCallback(() => {
+    setToast("布局已保存");
+    setTimeout(() => setToast(null), 1800);
+  }, []);
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div ref={containerRef} className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
       <div className="flex-1 min-h-0 overflow-y-auto">
         <SummaryBar />
 
@@ -142,90 +146,124 @@ export function DashboardView() {
               <CardContentSwitcher type={card.type} />
             </DashboardCard>
           ))}
-        </div>
 
-        {/* Add card button + dropdown */}
-        <div className="px-6 pb-6 relative">
+          {cards.length === 0 && (
+            <div className="col-span-full flex flex-col items-center justify-center py-24 gap-4">
+              <div style={{ color: "var(--text-muted)", opacity: 0.3 }}>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+              </div>
+              <span className="text-[13px]" style={{ color: "var(--text-muted)" }}>
+                仪表盘为空，点击右上角 + 添加组件
+              </span>
+            </div>
+          )}
+
+          <div className="col-span-full h-16" />
+        </div>
+      </div>
+
+      {/* Edit button — visible only in dashboard mode */}
+      {mode !== "edit" && (
+        <button
+          onClick={() => useAppModeStore.getState().setMode("edit")}
+          className="fixed top-4 right-4 z-40 w-10 h-10 rounded-full bg-white shadow-md border border-[#e5e1d8] hover:bg-[#eaf5ef] flex items-center justify-center transition-colors duration-200 cursor-pointer"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3a7d5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+        </button>
+      )}
+
+      {/* Circular Add Button — fixed position below topbar */}
+      {mode === "edit" && (
+        <>
           <button
-            onClick={() => setShowDropdown((v) => !v)}
-            className="w-full py-3 flex items-center justify-center gap-2 cursor-pointer transition-colors duration-200 rounded-xl text-[13px]"
+            onClick={() => setDrawerOpen(true)}
+            className="fixed z-30 flex items-center justify-center transition-all duration-300 ease-out cursor-pointer"
             style={{
-              backgroundColor: "var(--bg-secondary)",
-              border: "2px dashed var(--border)",
-              color: "var(--text-muted)",
+              top: 64,
+              right: 24,
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              backgroundColor: "#3a7d5e",
+              boxShadow: "0 2px 12px rgba(58,125,94,0.35)",
+              border: "none",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "var(--accent)";
-              e.currentTarget.style.color = "var(--accent)";
+              e.currentTarget.style.transform = "scale(1.08)";
+              e.currentTarget.style.boxShadow = "0 4px 20px rgba(58,125,94,0.45)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border)";
-              e.currentTarget.style.color = "var(--text-muted)";
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.boxShadow = "0 2px 12px rgba(58,125,94,0.35)";
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round">
               <path d="M12 5v14M5 12h14" />
             </svg>
-            添加组件
           </button>
 
-          {showDropdown && availableTypes.length > 0 && (
+          {/* Circular Save Button */}
+          <button
+            onClick={handleSaveLayout}
+            className="fixed z-30 flex items-center justify-center transition-all duration-300 ease-out cursor-pointer"
+            style={{
+              top: 64,
+              right: 84,
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              backgroundColor: "transparent",
+              boxShadow: "none",
+              border: "2px solid #3a7d5e",
+              color: "#3a7d5e",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.08)";
+              e.currentTarget.style.backgroundColor = "#eaf5ef";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.backgroundColor = "transparent";
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17,21 17,13 7,13 7,21" />
+              <polyline points="7,3 7,8 15,8" />
+            </svg>
+          </button>
+
+          {/* Toast */}
+          {toast && (
             <div
-              className="absolute bottom-full left-6 right-6 mb-1 z-50 animate-fade-in"
+              className="fixed z-50 px-5 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 animate-fade-in"
               style={{
-                backgroundColor: "var(--bg-secondary)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius)",
-                boxShadow: "var(--shadow-lg)",
+                top: 64,
+                right: 144,
+                backgroundColor: "#3a7d5e",
+                color: "#fff",
+                boxShadow: "0 4px 16px rgba(58,125,94,0.35)",
               }}
             >
-              <div className="p-1">
-                {availableTypes.map((entry) => (
-                  <button
-                    key={entry.type}
-                    onClick={() => {
-                      addCard(entry.type);
-                      setShowDropdown(false);
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-md text-[13px] cursor-pointer transition-colors flex items-center gap-2"
-                    style={{ color: "var(--text-primary)" }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "var(--bg-hover)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "transparent";
-                    }}
-                  >
-                    <span className="text-[10px] font-mono opacity-50" style={{ color: "var(--text-muted)" }}>
-                      {entry.width === "full" ? " ■■" : " ■"}
-                    </span>
-                    {entry.title}
-                  </button>
-                ))}
-              </div>
+              {toast}
             </div>
           )}
+        </>
+      )}
 
-          {showDropdown && availableTypes.length === 0 && (
-            <div
-              className="absolute bottom-full left-6 right-6 mb-1 z-50 p-3 text-[12px] text-center animate-fade-in"
-              style={{
-                backgroundColor: "var(--bg-secondary)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius)",
-                boxShadow: "var(--shadow-lg)",
-                color: "var(--text-muted)",
-              }}
-            >
-              所有组件已添加
-            </div>
-          )}
-        </div>
-
-        {showDropdown && (
-          <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
-        )}
-      </div>
+      {/* Drawer */}
+      <AddComponentDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
     </div>
   );
 }

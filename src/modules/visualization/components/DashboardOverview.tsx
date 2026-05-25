@@ -7,7 +7,6 @@ import React, { useMemo, useState, useCallback } from "react";
 import { useNoteStore } from "../../notes/stores/useNoteStore";
 import { useGraphStore, type GraphMode } from "../stores/useGraphStore";
 import { ForceGraph2D } from "../../notes/components/ForceGraph2D";
-import { ForceGraph3D } from "../../notes/components/ForceGraph3D";
 import { MindMapGalaxy } from "./MindMapGalaxy";
 import { getCategoryColor } from "../utils/colorMap";
 
@@ -248,14 +247,7 @@ function CategoryDistribution({ categories }: { categories: [string, number][] }
 
 export function DashboardOverview() {
   const { linkGraph, notesMetadata } = useNoteStore();
-
-  const categoryMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const meta of notesMetadata) {
-      map.set(meta.id, meta.category || "未分类");
-    }
-    return map;
-  }, [notesMetadata]);
+  const graphParams = useGraphStore((s) => s.graphParams);
 
   const categories = useMemo(() => {
     const map = new Map<string, number>();
@@ -296,7 +288,7 @@ export function DashboardOverview() {
             infoText={`${linkGraph.nodes.length} 节点, ${linkGraph.edges.length} 边`}
             cardId="relation"
           >
-            <ForceGraph2D simplified />
+            <ForceGraph2D simplified radiusScale={graphParams.nodeRadiusScale} />
           </GraphCard>
 
           <GraphCard
@@ -306,21 +298,6 @@ export function DashboardOverview() {
             cardId="galaxy"
           >
             <MindMapGalaxy />
-          </GraphCard>
-
-          <GraphCard
-            title="引用星团图"
-            mode="starcluster"
-            infoText={`${Math.min(linkGraph.nodes.length, 50)} 节点`}
-            cardId="starcluster"
-          >
-            <ForceGraph3D
-              nodes={linkGraph.nodes}
-              edges={linkGraph.edges}
-              maxNodes={50}
-              simplified
-              categoryMap={categoryMap}
-            />
           </GraphCard>
 
           <GraphCard

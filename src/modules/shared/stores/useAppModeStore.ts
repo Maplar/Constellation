@@ -4,6 +4,7 @@
  */
 
 import { create } from "zustand";
+import { useVisualizationStore } from "../../visualization/stores/useVisualizationStore";
 
 export type AppMode = "edit" | "dashboard";
 
@@ -14,5 +15,9 @@ interface AppModeState {
 
 export const useAppModeStore = create<AppModeState>((set) => ({
   mode: "edit",
-  setMode: (mode) => set({ mode }),
+  setMode: (newMode) => {
+    const { saveLayout } = useVisualizationStore.getState();
+    saveLayout();
+    set({ mode: newMode });
+  },
 }));

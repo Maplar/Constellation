@@ -20,7 +20,6 @@
     "chroma-js": "^3.2.0",
     "cytoscape": "^3.33.3",
     "d3": "^7.9.0",
-    "d3-force-3d": "^3.0.6",
     "fuse.js": "^7.3.0",
     "html2pdf.js": "^0.14.0",
     "openai": "^6.38.0",
@@ -29,7 +28,6 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "remark-wiki-link": "^2.0.1",
-    "three": "^0.174.0",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
@@ -40,7 +38,6 @@
     "@types/html2pdf.js": "^0.10.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "@types/three": "^0.174.0",
     "@vitejs/plugin-react": "^4.6.0",
     "tailwindcss": "^4.3.0",
     "typescript": "~5.8.3",

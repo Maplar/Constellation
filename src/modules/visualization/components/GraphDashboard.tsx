@@ -69,7 +69,6 @@ function StatsBar() {
 const DASHBOARD_CARDS = [
   { key: "relation", title: "文件关系图" },
   { key: "galaxy", title: "思维导图星系" },
-  { key: "starcluster", title: "引用星团图" },
   { key: "distribution", title: "分类分布" },
 ] as const;
 

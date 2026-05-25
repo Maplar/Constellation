@@ -21,9 +21,14 @@ export function createSearchIndex(notes: Note[]): Fuse<Note> {
 }
 
 export function searchNotes(fuse: Fuse<Note>, query: string): SearchResult[] {
-  if (!query.trim()) return [];
-  return fuse.search(query).map((result) => ({
-    note: result.item,
-    score: result.score,
-  }));
+  if (!query?.trim()) return [];
+  try {
+    return fuse.search(query).map((result) => ({
+      note: result.item,
+      score: result.score,
+    }));
+  } catch (error) {
+    console.error("Fuse 搜索异常:", error);
+    return [];
+  }
 }

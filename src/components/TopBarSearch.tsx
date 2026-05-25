@@ -3,43 +3,39 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import { useState, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAppModeStore } from "../modules/shared/stores/useAppModeStore";
 import { useNoteStore } from "../modules/notes/stores/useNoteStore";
 import { useGraphStore } from "../modules/visualization/stores/useGraphStore";
-import { useDebounce } from "../modules/shared/hooks/useDebounce";
 
 export function TopBarSearch() {
   const mode = useAppModeStore((s) => s.mode);
   const searchQuery = useNoteStore((s) => s.searchQuery);
-  const setSearchQuery = useNoteStore((s) => s.setSearchQuery);
+  const setNoteSearch = useNoteStore((s) => s.setSearchQuery);
   const setGraphSearch = useGraphStore((s) => s.setSearchQuery);
 
   const [inputValue, setInputValue] = useState(searchQuery);
-  const debouncedValue = useDebounce(inputValue, 200);
-
-  useEffect(() => {
-    if (debouncedValue !== searchQuery) {
-      setSearchQuery(debouncedValue);
-    }
-  }, [debouncedValue, searchQuery, setSearchQuery]);
-
-  useEffect(() => {
-    setGraphSearch(debouncedValue);
-  }, [debouncedValue, setGraphSearch]);
 
   useEffect(() => {
     setInputValue(searchQuery);
   }, [searchQuery]);
 
-  const handleClear = () => {
-    setInputValue("");
-    setSearchQuery("");
-    setGraphSearch("");
-  };
+  const handleChange = useCallback(
+    (value: string) => {
+      setInputValue(value);
+      setNoteSearch(value);
+      if (mode !== "edit") setGraphSearch(value);
+    },
+    [mode, setNoteSearch, setGraphSearch],
+  );
 
-  const placeholder =
-    mode === "edit" ? "搜索笔记…" : "搜索节点高亮…";
+  const handleClear = useCallback(() => {
+    setInputValue("");
+    setNoteSearch("");
+    if (mode !== "edit") setGraphSearch("");
+  }, [mode, setNoteSearch, setGraphSearch]);
+
+  const placeholder = mode === "edit" ? "搜索笔记…" : "搜索节点高亮…";
 
   return (
     <div className="relative flex items-center">
@@ -60,11 +56,11 @@ export function TopBarSearch() {
       <input
         type="text"
         value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
+        onChange={(e) => handleChange(e.target.value)}
         placeholder={placeholder}
         className="text-[13px] font-body outline-none transition-all"
         style={{
-          width: 220,
+          width: 240,
           borderRadius: 20,
           backgroundColor: "#f0ede5",
           border: "none",

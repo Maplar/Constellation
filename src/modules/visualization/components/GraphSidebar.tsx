@@ -30,12 +30,6 @@ const IconGalaxy = (
   </svg>
 );
 
-const IconStar = (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-  </svg>
-);
-
 const IconDashboard = (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
@@ -43,9 +37,8 @@ const IconDashboard = (
 );
 
 const MODES: ModeItem[] = [
-  { mode: "relation", icon: IconRelation, label: "文件关系图", dimension: "2D/3D 切换" },
+  { mode: "relation", icon: IconRelation, label: "文件关系图", dimension: "2D 力导向图" },
   { mode: "galaxy", icon: IconGalaxy, label: "思维导图星系", dimension: "2D 视图" },
-  { mode: "starcluster", icon: IconStar, label: "引用星团图", dimension: "3D 视图" },
   { mode: "dashboard", icon: IconDashboard, label: "仪表盘总览", dimension: "全部模块" },
 ];
 

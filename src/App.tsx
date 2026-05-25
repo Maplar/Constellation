@@ -26,6 +26,7 @@ import { IconSidebar } from "./components/IconSidebar";
 import { TopBar } from "./components/TopBar";
 import { EditorLayout } from "./components/EditorLayout";
 import { DashboardView } from "./components/DashboardView";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // ─── 桌面端布局 ────────────────────────────────────────────────────────────
 
@@ -99,11 +100,13 @@ function DesktopApp() {
   }
 
   return (
-    <div className="h-screen font-body text-ink overflow-hidden flex">
-      <IconSidebar />
-      <div className="flex-1 flex flex-col min-w-0">
+    <div className="h-screen font-body text-ink overflow-hidden flex flex-col">
+      <ErrorBoundary fallback={<div className="shrink-0 h-12 flex items-center px-4 text-[13px]" style={{ color: "var(--text-muted)" }}>搜索模块出错，请刷新</div>}>
         <TopBar onOpenSettings={() => setSettingsOpen((prev) => !prev)} />
-        <div className="flex-1 min-h-0 flex">
+      </ErrorBoundary>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <IconSidebar />
+        <div className="flex-1 min-w-0 flex">
           {mode === "edit" ? (
             <EditorLayout initialConfig={settingsConfig ?? undefined} />
           ) : (
