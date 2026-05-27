@@ -36,26 +36,27 @@ function DesktopApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    let cleanup = () => {};
+    let themeCleanup = () => {};
+
     getConfig()
       .then((config) => {
         setSettingsConfig(config);
         const theme = (config.theme || "system") as ThemeOption;
         applyTheme(theme);
-        cleanup = watchSystemTheme(theme);
+        themeCleanup = watchSystemTheme(theme);
       })
       .catch(() => {});
-    return () => cleanup();
-  }, []);
 
-  useEffect(() => {
     const unlisten = listen<AppConfig>("config-changed", (event) => {
       setSettingsConfig(event.payload);
       const theme = (event.payload.theme || "system") as ThemeOption;
       applyTheme(theme);
-      watchSystemTheme(theme);
+      themeCleanup();
+      themeCleanup = watchSystemTheme(theme);
     });
+
     return () => {
+      themeCleanup();
       void unlisten.then((fn) => fn());
     };
   }, []);
@@ -111,26 +112,27 @@ function MobileApp() {
   const [settingsConfig, setSettingsConfig] = useState<AppConfig | null>(null);
 
   useEffect(() => {
-    let cleanup = () => {};
+    let themeCleanup = () => {};
+
     getConfig()
       .then((config) => {
         setSettingsConfig(config);
         const theme = (config.theme || "system") as ThemeOption;
         applyTheme(theme);
-        cleanup = watchSystemTheme(theme);
+        themeCleanup = watchSystemTheme(theme);
       })
       .catch(() => {});
-    return () => cleanup();
-  }, []);
 
-  useEffect(() => {
     const unlisten = listen<AppConfig>("config-changed", (event) => {
       setSettingsConfig(event.payload);
       const theme = (event.payload.theme || "system") as ThemeOption;
       applyTheme(theme);
-      watchSystemTheme(theme);
+      themeCleanup();
+      themeCleanup = watchSystemTheme(theme);
     });
+
     return () => {
+      themeCleanup();
       void unlisten.then((fn) => fn());
     };
   }, []);

@@ -16,7 +16,7 @@ describe("Tile", () => {
       <Tile title="读书笔记" content={"满地都是六便士，\n他却抬头看见了月亮。"} />,
     );
 
-    expect(markup).toContain("rounded-xl");
+    expect(markup).toContain("rounded-2xl");
     expect(markup).toContain("background-color:#f6f3ec");
     expect(markup).not.toContain("bg-[#d8eee9]");
     expect(markup).toContain("shadow-[");

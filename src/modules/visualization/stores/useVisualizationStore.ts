@@ -6,6 +6,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+const DASHBOARD_SCHEMA_VERSION = 1;
+
 export type CardWidth = "full" | "half";
 
 export type CardType =
@@ -48,8 +50,7 @@ interface VisualizationState {
   addCard: (type: CardType) => boolean;
   removeCard: (id: string) => void;
   reorderCards: (fromIndex: number, toIndex: number) => void;
-  saveLayout: () => void;
-  loadLayout: () => void;
+  resetLayout: () => void;
 }
 
 function generateCardId(type: CardType): string {
@@ -61,9 +62,36 @@ export function getAvailableCardTypes(existingCards: DashboardCardConfig[]): Car
   return CARD_CATALOG.filter((c) => !addedTypes.has(c.type));
 }
 
+function migrateDashboard(data: unknown): unknown {
+  if (data === null || data === undefined) return data;
+  if (typeof data !== "object") return data;
+
+  const obj = data as Record<string, unknown>;
+  const version = typeof obj.version === "number" ? obj.version : 0;
+
+  if (version >= DASHBOARD_SCHEMA_VERSION) return data;
+
+  const migrated: Record<string, unknown> = { ...obj, version: DASHBOARD_SCHEMA_VERSION };
+
+  if (version === 0) {
+    const state = migrated.state as Record<string, unknown> | undefined;
+    if (state?.cards && Array.isArray(state.cards)) {
+      (state as Record<string, unknown>).cards = state.cards.filter(
+        (c: unknown): boolean => {
+          if (typeof c !== "object" || c === null) return false;
+          const card = c as Record<string, unknown>;
+          return typeof card.id === "string" && typeof card.type === "string";
+        },
+      );
+    }
+  }
+
+  return migrated;
+}
+
 export const useVisualizationStore = create<VisualizationState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       cards: [],
 
       addCard: (type) => {
@@ -97,25 +125,15 @@ export const useVisualizationStore = create<VisualizationState>()(
           return { cards: next };
         }),
 
-      saveLayout: () => {
-        const { cards } = get();
-        localStorage.setItem("constellation-dashboard-layout", JSON.stringify({ state: { cards }, version: 0 }));
-      },
-
-      loadLayout: () => {
-        const saved = localStorage.getItem("constellation-dashboard-layout");
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            set({ cards: parsed.state?.cards || [] });
-          } catch {
-            // ignore parse errors
-          }
-        }
-      },
+      resetLayout: () => set({ cards: [] }),
     }),
     {
       name: "constellation-dashboard-layout",
+      version: DASHBOARD_SCHEMA_VERSION,
+      migrate: (persistedState, _version) => {
+        const migrated = migrateDashboard(persistedState);
+        return migrated as VisualizationState;
+      },
       partialize: (state) => ({ cards: state.cards }),
     },
   ),

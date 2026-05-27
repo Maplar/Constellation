@@ -9,9 +9,9 @@
 ## 功能特性
 
 - **Markdown 编辑与预览** — 支持 GitHub Flavored Markdown 语法，三模式切换（编辑 / 分栏 / 预览）
-- **分类管理** — 文件夹子目录分类，支持新建、重命名、删除，笔记拖拽移动分类
-- **快捷便签** — 全局快捷键（Ctrl+Space）唤出独立极简编辑器：独立标题输入+正文编辑区、自动预创建笔记、900ms 自动保存、窗口池预热复用（`notepad:activate` 确保每次全新空白）、一键关闭回池或转为磁贴、冷灰调独立视觉风格（#f3f5f8 / 钢蓝 accent）
-- **磁贴模式** — 将笔记固定在桌面某处，置于顶层，支持跟随系统主题颜色 + 深色模式自动适配（#191919），四角 SVG 角标，chroma-js 动态颜色混合，磁贴生命周期事件（`tile-window-closed` / `tile-window-unpinned`）
+- **分类管理** — 文件夹子目录分类，支持嵌套层级（如 `技术/前端`），支持新建、重命名、删除，笔记拖拽移动分类
+- **快捷便签** — 全局快捷键（Ctrl+Space）唤出独立极简编辑器：独立标题输入+正文编辑区、自动预创建笔记、900ms 自动保存、窗口池预热复用（`notepad:activate` 确保每次全新空白）、一键关闭回池或转为磁贴、冷灰调独立视觉风格（#f3f5f8 / 钢蓝 accent）、**快捷便签不再创建独立子文件夹**
+- **磁贴模式** — 将笔记固定在桌面某处，置于顶层，支持跟随系统主题颜色 + 深色模式自动适配（#191919），rounded-2xl 圆角（16px） + 柔和阴影，**8 方向边缘 & 对角缩放手柄**（N/S/E/W + NW/NE/SW/SE 共 8 个柄），四角 SVG 角标，chroma-js 动态颜色混合，磁贴生命周期事件（`tile-window-closed` / `tile-window-unpinned`）
 - **自动保存** — 主窗口笔记与小窗笔记均支持 900ms 防抖自动保存
 - **外部文件引用** — 直接打开系统中任意 `.md` 文件，无需导入即可编辑
 - **导入导出** — 支持 `.md` 文件的导入和导出，可设为系统默认 Markdown 编辑器
@@ -23,11 +23,12 @@
 - **引用星团图** — 基于 d3-force 的 2D 力导向引用关系图，展示笔记间引用网络，支持简化模式嵌入卡片
 - **图谱仪表盘** — 动态卡片网格（ResizeObserver 1/2/3 列自适应）：统计概览合并卡片、文件关系图、思维导图星系、星团图、分类分布环形图、引用排行；仪表盘编辑模式（TopBar 铅笔按钮切换，编辑模式下卡片显示红色 × 直删 + 底部「添加组件/保存布局」按钮）
 - **搜索增强** — 基于 Fuse.js 的模糊搜索 + 图谱节点高亮：2D 关系图 d3 选择器绿色描边高亮匹配节点 + 星系图行星 fill 颜色变化
-- **AI 总结** — 支持配置 OpenAI 风格 API，一键对当前笔记生成智能摘要，API Key 本地加密存储
+- **AI 总结** — 支持配置 OpenAI 风格 API，**流式生成**（SSE + AbortController 逐字渲染 + 随时停止），一键对当前笔记生成智能摘要，API Key 本地加密存储
 - **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页
 - **品牌安装界面** — 基于 NSIS 的中国风安装/卸载向导，毛笔字体标题、水墨装饰、篆刻印章，与应用 UI 颜色系统统一
 - **跨平台适配** — 支持 Windows/macOS/Linux 桌面端与 Android/iOS 移动端，UI 根据平台自动调整（底部 TabBar、触控优化、侧栏抽屉）
-- **全局模式切换** — 48px IconSidebar 常驻左侧，编辑模式（笔记列表+编辑器）与仪表盘模式（图谱网格）一键切换；仪表盘卡片支持拖拽排序 + localStorage 布局持久化
+- **全局模式切换** — 48px IconSidebar 常驻左侧，编辑模式（笔记列表+编辑器）与仪表盘模式（图谱网格）一键切换；仪表盘卡片支持拖拽排序 + localStorage 布局持久化 + **版本自动迁移**
+- **文件变更监听** — 后台基于 `notify` crate 监听笔记目录文件系统事件，外部编辑器修改 `.md` 后自动触发 `notes-changed` 事件刷新列表，300ms 防抖
 
 ## 技术架构
 
@@ -59,6 +60,7 @@
 | `tauri-plugin-single-instance` | 单实例限制 + CLI 文件参数转发 |
 | `tauri-plugin-autostart` | 开机自启动（通过 desktop.rs） |
 | `tauri-plugin-global-shortcut` | 全局快捷键注册（通过 desktop.rs） |
+| `notify` (Rust crate) | 文件系统监听，检测笔记目录变更并触发前端刷新 |
 
 ### 安装程序
 
@@ -80,27 +82,15 @@ SVG 源文件和转换说明见 `src-tauri/icons/nsis/CONVERT.md`。
 src/
 ├── App.tsx          入口路由          src-tauri/src/
 ├── main.tsx         React DOM 挂载    ├── lib.rs        命令注册+事件+插件
-├── components/      UI 组件层         ├── desktop.rs    桌面平台逻辑
-│   ├── MainWindow   主窗口           │   (多窗口、托盘、快捷键、自启)
-│   ├── NotePad      便签小窗         ├── main.rs       入口
-│   ├── Tile         磁贴组件         └── services/
-│   ├── TileShowcase 磁贴窗口             └── notes.rs   笔记存储引擎
-│   ├── SettingsPanel 设置面板              (CRUD、元数据、配置持久化)
-│   ├── ContextMenu  右键菜单
-│   ├── SlidingButtonGroup 滑动按钮组
-│   ├── IconSidebar  模式切换侧栏（48px）
-│   ├── TopBar       顶栏（标题+搜索+窗口控制）
-│   ├── TopBarSearch 顶栏搜索框
-│   ├── NoteListPanel 笔记列表侧栏（提取组件）
-│   ├── EditorLayout 编辑布局（NoteListPanel+编辑器）
-│   ├── DashboardCard  仪表盘卡片（hover 关闭按钮）
-│   └── DashboardView 仪表盘视图
-└── features/        功能模块
-    ├── notes/       笔记 API + 工具函数
-    ├── settings/    配置 API + 主题/颜色
-    ├── windows/     多窗口 API + 控制
-    ├── markdown/    Markdown 预览
-    └── importExport/ 导入导出 API
+├── components/      遗留 UI 组件       ├── desktop.rs    桌面平台逻辑
+│   ├── IconSidebar  模式切换侧栏      │   (多窗口、托盘、快捷键、自启、文件监听)
+│   ├── TopBar       顶栏              ├── main.rs       入口
+│   ├── TopBarSearch 顶栏搜索框        └── services/
+│   ├── EditorLayout  编辑布局             ├── notes.rs   笔记存储引擎
+│   ├── DashboardCard  仪表盘卡片              (CRUD、元数据、配置持久化、文件监听)
+│   ├── DashboardView 仪表盘视图      │   └── ai.rs      AI 配置服务
+│   └── ErrorBoundary 错误边界
+└── modules/         ★ 新模块化目录
 ```
 
 **事件通信**：后端通过 Tauri `emit` 向前端广播 `notes-changed`、`config-changed`、`open-external-file` 事件，前端通过 `listen` 订阅。
@@ -109,20 +99,20 @@ src/
 
 | 类型 | 文件路径 | 字段摘要 |
 |------|----------|----------|
-| `NoteMetadata` | `src/features/notes/types.ts:1-10` | id, title, fileName, category, createdAt, updatedAt, wordCount, preview |
-| `Note` | `src/features/notes/types.ts:12-14` | 继承 NoteMetadata（不含 preview），增加 content |
-| `SaveNoteRequest` | `src/features/notes/types.ts:16-20` | title, content, category |
-| `ExternalFile` | `src/features/notes/types.ts:22-26` | id（文件路径）, title, filePath |
-| `AppConfig` | `src/features/settings/types.ts:7-20` | notesDir, globalShortcut, closeToTray, autostart, defaultViewMode, noteAutoSave, noteSurfaceAutoSave, tileColor, tileColorMode, theme, fontSize, surfaceFontSize |
-| `CategoryGroup` | `src/features/notes/noteUtils.ts:38-42` | category, notes[], latestUpdatedAt |
-| `AppRoute` | `src/features/windows/windowRoutes.ts:3-6` | view ("main" / "notepad" / "tile" / "graph"), noteId? |
+| `NoteMetadata` | `src/modules/shared/types/notes.ts` | id, title, fileName, category, createdAt, updatedAt, wordCount, preview |
+| `Note` | `src/modules/shared/types/notes.ts` | 继承 NoteMetadata（不含 preview），增加 content |
+| `SaveNoteRequest` | `src/modules/shared/types/notes.ts` | title, content, category |
+| `ExternalFile` | `src/modules/shared/types/notes.ts` | id（文件路径）, title, filePath |
+| `AppConfig` | `src/modules/shared/types/settings.ts` | notesDir, globalShortcut, closeToTray, autostart, defaultViewMode, noteAutoSave, noteSurfaceAutoSave, tileColor, tileColorMode, theme, fontSize, surfaceFontSize |
+| `CategoryGroup` | `src/modules/shared/utils/noteUtils.ts` | category, notes[], latestUpdatedAt |
+| `AppRoute` | `src/modules/windows/windowRoutes.ts` | view ("main" / "notepad" / "tile" / "graph"), noteId? |
 | `WikiLink` | `src/modules/shared/types/notes.ts:38-43` | sourceNoteId, targetTitle, alias, rawText |
 | `GraphNode` | `src/modules/shared/types/notes.ts:45-52` | id, label, val, color, noteId, x?, y? |
 | `GraphEdge` | `src/modules/shared/types/notes.ts:54-59` | source, target, label, value |
 | `LinkGraph` | `src/modules/shared/types/notes.ts:61-64` | nodes: GraphNode[], edges: GraphEdge[] |
 | `NoteStore` | `src/modules/notes/stores/useNoteStore.ts` | Zustand store（notes, wikiLinks, linkGraph, loadNotes, rebuildGraph） |
 
-**存储方式**：笔记以 `<uuid>_<safe_title>.md` 文件存储在按分类划分子目录的文件夹中，元数据聚合在 `metadata.json`。配置保存在 `config.json`。默认数据目录为 `%USERPROFILE%\Documents\星座`。
+**存储方式**：笔记以 `<uuid>_<safe_title>.md` 文件存储在按分类划分子目录的文件夹中，支持嵌套分类路径（如 `技术/前端/`），元数据聚合在 `metadata.json`。配置保存在 `config.json`。默认数据目录为 `%USERPROFILE%\Documents\星座`。文件变更通过 `notify` crate 监听并自动触发前端刷新。
 
 ## 模块完成度
 
@@ -137,8 +127,7 @@ src/
 | **导入导出** | 100% | Markdown 双向导入导出，文件对话框集成 |
 | **外部文件引用** | 100% | 直接读写外部 .md 文件 |
 | **搜索** | 100% | 基于 Fuse.js 实现模糊搜索，支持相关性排序和关键词高亮 |
-| **AI 客户端** | 100% | 支持用户自定义 API Key，可对笔记内容进行 AI 总结 |
-| **AI 面板** | 100% | 模态框展示总结结果，支持复制到剪贴板 |
+| **AI 客户端** | 100% | 支持自定义 API Key，流式逐字生成（SSE + AbortController），可随时停止生成 |
 | **Markdown→PDF** | 100% | 基于 html2pdf.js 实现，支持样式保留和分页 |
 | **图谱仪表盘** | 100% | 1/2/3 列自适应卡片网格，统计概览合并卡片，编辑模式（铅笔按钮一键切换卡片添加/直删），拖拽排序+localStorage 布局持久化，AddComponentDrawer 右侧抽屉 |
 | **文件关系图谱** | 100% | 2D 力导向图，节点 8~40px 白色 2px 描边，11px 标签截断 8 字，贝塞尔曲线边+箭头，光晕效果，hover 高亮关联路径+tooltip，300ms 切换动画，力强度滑块 |
@@ -158,8 +147,14 @@ floral-notepaper/
 │   ├── App.tsx                       # 根组件（路由分发）
 │   ├── App.css
 │   ├── vite-env.d.ts
-│   ├── components/                   # UI 组件（重构过渡期保留）
-│   ├── features/                     # 功能模块（重构过渡期保留）
+│   ├── components/                   # 遗留 UI 组件（逐步迁移至 modules/）
+│   │   ├── IconSidebar.tsx
+│   │   ├── TopBar.tsx
+│   │   ├── TopBarSearch.tsx
+│   │   ├── EditorLayout.tsx
+│   │   ├── DashboardCard.tsx
+│   │   ├── DashboardView.tsx
+│   │   └── ErrorBoundary.tsx
 │   └── modules/                      # ★ 新模块化目录
 │       ├── shared/                   # 跨模块共享
 │       │   ├── types/                # 全局类型（notes.ts, settings.ts）
@@ -169,18 +164,17 @@ floral-notepaper/
 │       │   ├── utils/                # 通用工具（noteUtils.ts, highlightUtils.tsx）
 │       │   └── components/           # 通用 UI（ContextMenu, SlidingButtonGroup, MobileTabBar, MobileBottomSheet）
 │       ├── notes/                    # 笔记管理模块
-│       │   ├── components/           # MainWindow, MarkdownPreview, ForceGraph2D, GraphView
+│       │   ├── components/           # MainWindow, MarkdownPreview, ForceGraph2D, GraphView, AiSummaryModal, SearchBar
 │       │   ├── stores/               # Zustand store（useNoteStore.ts）
-│       │   ├── services/             # 搜索服务（searchService.ts）、AI 服务（aiService.ts）、PDF 导出（pdfExportService.ts）
+│       │   ├── services/             # 搜索服务（searchService.ts）、AI 服务（aiService.ts 流式+非流式）、PDF 导出（pdfExportService.ts）
 │       │   ├── hooks/                # useGraphData, useNotes, useDebounce
 │       │   ├── api/                  # 笔记 CRUD + 导入导出 API
 │       │   ├── linkParser.ts         # Wiki-Link 解析器
 │       │   └── noteContextMenu.ts    # 右键菜单
 │       ├── windows/                  # 窗口管理模块
 │       │   ├── components/           # NotePad, Tile, TileShowcase
-│       │   ├── stores/               # 窗口池状态
 │       │   ├── api.ts                # 多窗口 API
-│       │   ├── controls.ts           # 窗口控制
+│       │   ├── controls.ts           # 窗口控制（含 8 方向 resize）
 │       │   ├── surfaceMode.ts        # 便签↔磁贴切换
 │       │   ├── surfaceActions.ts     # 右键操作
 │       │   ├── tileContextMenu.ts    # 磁贴菜单
@@ -189,17 +183,16 @@ floral-notepaper/
 │       │   └── windowRoutes.ts       # 视图路由
 │       ├── settings/                 # 设置模块
 │       │   ├── components/           # SettingsPanel
-│       │   ├── api.ts, theme.ts, tileColor.ts
+│       │   ├── api.ts, theme.ts, tileColor.ts, ai.ts, shortcutRecorder.ts
 │       │   └── types.ts
 │       └── visualization/            # 可视化模块
 │           ├── components/
-│           │   ├── GraphDashboard    # 仪表盘主布局（StatsBar + 画布 + 底部控制栏）
-│           │   ├── GraphSidebar      # 侧边栏（视图切换 + 分类筛选 + 图例 + 统计）
-│           │   ├── cards/            # 卡片内容组件（RelationGraphCard, GalaxyCard, CategoryDonutCard, CitationRankingCard, SummaryStatsCard）
-│           │   ├── RelationGraph/    # 文件关系图（GraphToolbar: 2D/3D 切换+力强度滑块+重置）
-│           │   ├── MindMapGalaxy/    # 思维导图星系（GalaxyCanvas+GalaxyToolbar+StarNode+PlanetNode+OrbitRing）
+│           │   ├── AddComponentDrawer # 添加组件抽屉
+│           │   ├── cards/            # 卡片内容组件（RelationGraphCard, GalaxyCard, CategoryDonutCard, CitationRankingCard, CitationBubbleCard, SummaryStatsCard）
+│           │   ├── RelationGraph/    # 文件关系图
+│           │   ├── MindMapGalaxy/    # 思维导图星系
 │           │   └── shared/           # CanvasContainer, HoverTooltip
-│           ├── stores/               # useGraphStore（graphParams, activeFilters, 模式切换）+ useVisualizationStore（卡片管理）
+│           ├── stores/               # useGraphStore + useVisualizationStore（zustand persist + 版本迁移）
 │           ├── hooks/                # useGalaxyLayout, useVisibility
 │           └── utils/                # colorMap（分类颜色映射）
 ├── src-tauri/                        # Rust 后端

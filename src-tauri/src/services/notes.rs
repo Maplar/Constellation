@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use std::{
     env, fmt, fs, io,
     path::{Path, PathBuf},
+    sync::mpsc,
+    time::Duration,
 };
+use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -339,14 +342,28 @@ impl NoteStore {
         let notes_dir = self.notes_dir()?;
         fs::create_dir_all(&notes_dir)?;
         let mut categories = Vec::new();
-        for entry in fs::read_dir(&notes_dir)? {
-            let entry = entry?;
-            if entry.path().is_dir() {
-                categories.push(entry.file_name().to_string_lossy().to_string());
-            }
-        }
+        Self::scan_categories(&notes_dir, "", &mut categories)?;
         categories.sort();
         Ok(categories)
+    }
+
+    fn scan_categories(dir: &Path, prefix: &str, out: &mut Vec<String>) -> Result<(), AppError> {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let full = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{}/{}", prefix, name)
+            };
+            out.push(full.clone());
+            Self::scan_categories(&path, &full, out)?;
+        }
+        Ok(())
     }
 
     pub fn create_category(&self, name: &str) -> Result<(), AppError> {
@@ -722,6 +739,72 @@ fn default_font_size() -> u32 {
 
 fn default_surface_font_size() -> u32 {
     14
+}
+
+pub fn start_notes_watcher(app: AppHandle, notes_dir: PathBuf) {
+    use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+
+    let (tx, rx) = mpsc::channel::<Result<notify::Event, notify::Error>>();
+
+    let mut watcher = match RecommendedWatcher::new(
+        move |res| {
+            let _ = tx.send(res);
+        },
+        Config::default(),
+    ) {
+        Ok(w) => w,
+        Err(error) => {
+            eprintln!("failed to create file watcher: {error}");
+            return;
+        }
+    };
+
+    if let Err(error) = watcher.watch(&notes_dir, RecursiveMode::Recursive) {
+        eprintln!("failed to watch notes dir: {error}");
+        return;
+    }
+
+    std::thread::spawn(move || {
+        let mut last_emit = std::time::Instant::now();
+        let debounce = Duration::from_millis(300);
+
+        for event in rx {
+            match event {
+                Ok(event) => {
+                    let is_metadata = event.paths.iter().any(|p| {
+                        p.file_name()
+                            .map(|name| name == "metadata.json")
+                            .unwrap_or(false)
+                    });
+                    if is_metadata {
+                        continue;
+                    }
+
+                    let relevant = matches!(
+                        event.kind,
+                        EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
+                    );
+                    if !relevant {
+                        continue;
+                    }
+
+                    let now = std::time::Instant::now();
+                    if now.duration_since(last_emit) < debounce {
+                        continue;
+                    }
+                    last_emit = now;
+
+                    let app_clone = app.clone();
+                    let _ = app.run_on_main_thread(move || {
+                        let _ = app_clone.emit("notes-changed", ());
+                    });
+                }
+                Err(error) => {
+                    eprintln!("file watcher error: {error}");
+                }
+            }
+        }
+    });
 }
 
 #[cfg(test)]

@@ -204,6 +204,16 @@ export function ForceGraph2D({
       value: e.value,
     }));
 
+    const neighborMap = new Map<string, Set<string>>();
+    for (const edge of linkGraph.edges) {
+      const srcId = edge.source;
+      const tgtId = edge.target;
+      if (!neighborMap.has(srcId)) neighborMap.set(srcId, new Set());
+      if (!neighborMap.has(tgtId)) neighborMap.set(tgtId, new Set());
+      neighborMap.get(srcId)!.add(tgtId);
+      neighborMap.get(tgtId)!.add(srcId);
+    }
+
     const linkGroup = g.append("g").attr("class", "links");
     const nodeGroup = g.append("g").attr("class", "nodes");
 
@@ -304,9 +314,11 @@ export function ForceGraph2D({
       const relatedIds = new Set<string>();
       if (activeId) {
         relatedIds.add(activeId);
-        for (const edge of linkGraph.edges) {
-          if (edge.source === activeId) relatedIds.add(edge.target);
-          if (edge.target === activeId) relatedIds.add(edge.source);
+        const neighbors = neighborMap.get(activeId);
+        if (neighbors) {
+          for (const id of neighbors) {
+            relatedIds.add(id);
+          }
         }
       }
 
@@ -423,6 +435,8 @@ export function ForceGraph2D({
       )
       .force("x", d3.forceX(width / 2).strength(0.05))
       .force("y", d3.forceY(height / 2).strength(0.05))
+      .alphaDecay(simplified ? 0.03 : 0.015)
+      .alphaMin(0.005)
       .on("tick", () => {
         linkElements.attr("d", (d: SimLink) => {
           const sx = (d.source as SimNode).x ?? 0;
@@ -442,25 +456,7 @@ export function ForceGraph2D({
           let scale = 1;
           if (hovered) {
             if (d.id === hovered) scale = 1.2;
-            else {
-              for (const edge of linkGraph.edges) {
-                const sid =
-                  typeof edge.source === "string"
-                    ? edge.source
-                    : (edge.source as SimNode).id;
-                const tid =
-                  typeof edge.target === "string"
-                    ? edge.target
-                    : (edge.target as SimNode).id;
-                if (
-                  (sid === hovered && tid === d.id) ||
-                  (tid === hovered && sid === d.id)
-                ) {
-                  scale = 1.1;
-                  break;
-                }
-              }
-            }
+            else if (neighborMap.get(d.id)?.has(hovered)) scale = 1.1;
           }
           return `translate(${tx},${ty}) scale(${scale})`;
         });

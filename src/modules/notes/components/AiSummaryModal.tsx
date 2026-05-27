@@ -11,6 +11,8 @@ interface AiSummaryModalProps {
   result: string | null;
   error: string | null;
   onClose: () => void;
+  streaming?: boolean;
+  onCancel?: () => void;
 }
 
 export function AiSummaryModal({
@@ -19,6 +21,8 @@ export function AiSummaryModal({
   result,
   error,
   onClose,
+  streaming = false,
+  onCancel,
 }: AiSummaryModalProps) {
   const [copied, setCopied] = useState(false);
 
@@ -31,7 +35,6 @@ export function AiSummaryModal({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // 回退方案：选中文本手动复制
       const textarea = document.createElement("textarea");
       textarea.value = result;
       textarea.style.position = "fixed";
@@ -58,27 +61,42 @@ export function AiSummaryModal({
           <h3 className="text-[13px] font-display font-medium text-ink-soft">
             AI 总结
           </h3>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-ghost hover:text-ink-soft hover:bg-paper-warm transition-colors cursor-pointer"
-            title="关闭"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
+          <div className="flex items-center gap-1">
+            {streaming && onCancel && (
+              <button
+                onClick={onCancel}
+                className="h-7 px-2.5 rounded-md text-[11px] font-medium text-red-400 border border-red-400/40 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+              >
+                停止生成
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-ghost hover:text-ink-soft hover:bg-paper-warm transition-colors cursor-pointer"
+              title="关闭"
             >
-              <path d="M2 2l8 8M10 2l-8 8" />
-            </svg>
-          </button>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
+                <path d="M2 2l8 8M10 2l-8 8" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          {loading ? (
+          {streaming && result ? (
+            <div className="text-[13px] text-ink-soft leading-relaxed whitespace-pre-wrap">
+              {result}
+              <span className="inline-block w-1.5 h-4 ml-0.5 align-text-bottom animate-pulse bg-bamboo/60 rounded-sm" />
+            </div>
+          ) : loading ? (
             <div className="flex items-center justify-center py-12">
               <span className="text-[24px] animate-pulse text-bamboo/50">
                 ✦

@@ -4,10 +4,11 @@
 // 修改部分版权：Copyright (c) 2026 Maplar
 // 修改说明：二次开发修改
 
-use crate::services::notes::{default_store, AppConfig, AppError};
+use crate::services::notes::{default_store, start_notes_watcher, AppConfig, AppError};
 use serde::Deserialize;
 use std::{
     error::Error,
+    path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
         Mutex,
@@ -125,6 +126,12 @@ impl NotepadPool {
             .lock()
             .map(|a| a.len() < NOTEPAD_POOL_CAPACITY)
             .unwrap_or(false)
+    }
+
+    fn remove(&self, label: &str) {
+        if let Ok(mut available) = self.available.lock() {
+            available.retain(|l| l != label);
+        }
     }
 }
 
@@ -261,6 +268,7 @@ pub fn setup_desktop(app: &mut App) -> Result<(), Box<dyn Error>> {
     register_configured_global_shortcut(app.handle());
     setup_tray(app)?;
     schedule_notepad_prewarm(app.handle());
+    start_notes_watcher_on_setup(app.handle());
 
     if !std::env::args().any(|a| a == "--silent") {
         if let Err(error) = show_main_window(app.handle()) {
@@ -287,6 +295,11 @@ pub fn handle_window_event(window: &Window, event: &WindowEvent) {
                 .app_handle()
                 .emit("tile-window-closed", note_id.to_string());
         }
+        if window.label().starts_with("notepad-") {
+            if let Some(pool) = window.app_handle().try_state::<NotepadPool>() {
+                pool.remove(window.label());
+            }
+        }
         return;
     }
 
@@ -305,6 +318,17 @@ pub fn handle_window_event(window: &Window, event: &WindowEvent) {
     api.prevent_close();
     if let Err(error) = window.hide() {
         eprintln!("failed to hide main window to tray: {error}");
+    }
+}
+
+fn start_notes_watcher_on_setup(app: &AppHandle) {
+    match default_store().and_then(|store| store.load_config()) {
+        Ok(config) => {
+            start_notes_watcher(app.clone(), PathBuf::from(config.notes_dir));
+        }
+        Err(error) => {
+            eprintln!("failed to start notes watcher: {error}");
+        }
     }
 }
 
@@ -466,7 +490,10 @@ fn activate_pooled_notepad(
 ) -> Option<String> {
     let pool = app.try_state::<NotepadPool>()?;
     let label = pool.take()?;
-    let window = app.get_webview_window(&label)?;
+    let Some(window) = app.get_webview_window(&label) else {
+        pool.remove(&label);
+        return None;
+    };
 
     let specs = notepad_window_specs();
     let _ = window.set_size(tauri::LogicalSize::new(specs.width, specs.height));

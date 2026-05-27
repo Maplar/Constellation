@@ -3,7 +3,15 @@
  * 基于 MIT 许可证授权
  *
  * 修改部分版权：Copyright (c) 2026 Maplar
- * 修改说明：实际内容暂在 components/TileShowcase.tsx，Step 6 将迁移至此
+ * 修改说明：二次开发修改
  */
 
-export { TileShowcase } from "../../../components/TileShowcase";
+import { NotePad } from "./NotePad";
+
+interface TileShowcaseProps {
+  noteId?: string;
+}
+
+export function TileShowcase({ noteId }: TileShowcaseProps) {
+  return <NotePad initialNoteId={noteId} initialSurfaceMode="tile" />;
+}
