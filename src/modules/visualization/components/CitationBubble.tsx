@@ -8,6 +8,7 @@ import * as d3 from "d3";
 import { useNoteStore } from "../../notes/stores/useNoteStore";
 import { useGraphStore } from "../stores/useGraphStore";
 import { getCategoryColor } from "../utils/colorMap";
+import { HoverTooltip } from "./shared/HoverTooltip";
 
 interface BubbleData {
   id: string;
@@ -22,8 +23,8 @@ interface TooltipInfo {
   label: string;
   category: string;
   val: number;
-  x: number;
-  y: number;
+  clientX: number;
+  clientY: number;
 }
 
 function truncateLabel(label: string, max = 6): string {
@@ -163,13 +164,12 @@ export function CitationBubble() {
       .attr("cursor", (d) => (d.data.noteId ? "pointer" : "default"))
       .on("click", (_event, d) => handleNodeClick(d.data.noteId))
       .on("mouseenter", (event: MouseEvent, d) => {
-        const rect = container.getBoundingClientRect();
         setTooltip({
           label: d.data.label,
           category: d.data.category,
           val: d.data.val,
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top,
+          clientX: event.clientX,
+          clientY: event.clientY,
         });
         d3.select(event.currentTarget as Element)
           .select("circle")
@@ -177,10 +177,9 @@ export function CitationBubble() {
           .attr("stroke", "var(--accent)");
       })
       .on("mousemove", (event: MouseEvent) => {
-        const rect = container.getBoundingClientRect();
         setTooltip((prev) =>
           prev
-            ? { ...prev, x: event.clientX - rect.left, y: event.clientY - rect.top }
+            ? { ...prev, clientX: event.clientX, clientY: event.clientY }
             : prev,
         );
       })
@@ -230,37 +229,13 @@ export function CitationBubble() {
     >
       <svg ref={svgRef} className="w-full h-full" />
       {tooltip && (
-        <div
-          className="absolute pointer-events-none z-20 px-3 py-2"
-          style={{
-            left: tooltip.x + 14,
-            top: tooltip.y - 44,
-            backgroundColor: "var(--bg-secondary)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-sm)",
-            maxWidth: 220,
-            boxShadow: "var(--shadow-lg)",
-          }}
-        >
-          <div
-            className="text-[12px] font-medium whitespace-nowrap overflow-hidden text-ellipsis"
-            style={{ color: "var(--text-primary)" }}
-          >
-            {tooltip.label}
-          </div>
-          <div
-            className="text-[10px] flex items-center gap-2 mt-0.5"
-            style={{ color: "var(--text-muted)" }}
-          >
-            <span
-              className="inline-block w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: getCategoryColor(tooltip.category) }}
-            />
-            <span className="truncate">
-              {tooltip.category} · 引用 {tooltip.val} 次
-            </span>
-          </div>
-        </div>
+        <HoverTooltip
+          clientX={tooltip.clientX}
+          clientY={tooltip.clientY}
+          label={tooltip.label}
+          category={tooltip.category}
+          val={tooltip.val}
+        />
       )}
     </div>
   );

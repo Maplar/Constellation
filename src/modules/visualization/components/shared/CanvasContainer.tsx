@@ -3,6 +3,8 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
+import { SelectedNodeBar } from "./SelectedNodeBar";
+
 interface CanvasContainerProps {
   toolbar: React.ReactNode;
   infoText: string;
@@ -37,6 +39,7 @@ export function CanvasContainer({ toolbar, infoText, children }: CanvasContainer
         style={{ backgroundColor: "var(--bg-primary)" }}
       >
         {children}
+        <SelectedNodeBar className="absolute top-2 left-1/2 -translate-x-1/2 z-30" />
       </div>
 
       {/* Info bar — 28px */}

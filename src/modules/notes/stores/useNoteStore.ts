@@ -15,6 +15,8 @@ interface NoteStoreState {
   notes: Note[];
   wikiLinks: WikiLink[];
   linkGraph: LinkGraph;
+  outgoingMap: Map<string, GraphEdge[]>;  // noteId → 该笔记引用的边列表
+  incomingMap: Map<string, GraphEdge[]>;  // noteId → 引用该笔记的边列表
   selectedNoteId: string | null;
   isLoading: boolean;
   errorMessage: string | null;
@@ -35,11 +37,34 @@ interface NoteStoreActions {
 
 type NoteStore = NoteStoreState & NoteStoreActions;
 
+// 辅助函数：构建引用索引 Map
+function buildReferenceMaps(edges: GraphEdge[]): {
+  outgoingMap: Map<string, GraphEdge[]>;
+  incomingMap: Map<string, GraphEdge[]>;
+} {
+  const outgoingMap = new Map<string, GraphEdge[]>();
+  const incomingMap = new Map<string, GraphEdge[]>();
+
+  for (const edge of edges) {
+    // outgoing
+    if (!outgoingMap.has(edge.source)) outgoingMap.set(edge.source, []);
+    outgoingMap.get(edge.source)!.push(edge);
+
+    // incoming
+    if (!incomingMap.has(edge.target)) incomingMap.set(edge.target, []);
+    incomingMap.get(edge.target)!.push(edge);
+  }
+
+  return { outgoingMap, incomingMap };
+}
+
 export const useNoteStore = create<NoteStore>((set, get) => ({
   notesMetadata: [],
   notes: [],
   wikiLinks: [],
   linkGraph: { nodes: [], edges: [] },
+  outgoingMap: new Map(),
+  incomingMap: new Map(),
   selectedNoteId: null,
   isLoading: false,
   errorMessage: null,
@@ -75,7 +100,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       }
       const links = parseAllLinks(fullNotes);
       const graph = buildLinkGraph(fullNotes);
-      set({ notes: fullNotes, wikiLinks: links, linkGraph: graph, isLoading: false });
+      const { outgoingMap, incomingMap } = buildReferenceMaps(graph.edges);
+      set({ notes: fullNotes, wikiLinks: links, linkGraph: graph, outgoingMap, incomingMap, isLoading: false });
       get().performSearch();
     } catch (error) {
       set({ isLoading: false, errorMessage: String(error) });
@@ -91,7 +117,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     if (notes.length === 0) return;
     const links = parseAllLinks(notes);
     const graph = buildLinkGraph(notes);
-    set({ wikiLinks: links, linkGraph: graph });
+    const { outgoingMap, incomingMap } = buildReferenceMaps(graph.edges);
+    set({ wikiLinks: links, linkGraph: graph, outgoingMap, incomingMap });
   },
 
   getLinkedNotes: (noteId) => {

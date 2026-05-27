@@ -9,6 +9,7 @@ pub mod services;
 
 use services::notes::{default_store, AppConfig, AppError, Note, NoteMetadata, SaveNoteRequest};
 use services::ai::AIConfig;
+use services::mindmap;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
 
@@ -206,7 +207,12 @@ pub fn run() {
             recycle_notepad_window,
             open_tile_window,
             save_ai_config,
-            load_ai_config
+            load_ai_config,
+            mindmap::mindmap_ensure_dir,
+            mindmap::mindmap_read,
+            mindmap::mindmap_write,
+            mindmap::mindmap_read_index,
+            mindmap::mindmap_write_index
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

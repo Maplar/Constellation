@@ -6,26 +6,58 @@
 import { getCategoryColor } from "../../utils/colorMap";
 
 interface HoverTooltipProps {
-  x: number;
-  y: number;
+  clientX: number;
+  clientY: number;
   label: string;
   category: string;
   val: number;
   extra?: string;
+  visible?: boolean;
 }
 
-export function HoverTooltip({ x, y, label, category, val, extra }: HoverTooltipProps) {
+const OFFSET = 14;
+const EST_WIDTH = 220;
+const EST_HEIGHT = 60;
+
+export function HoverTooltip({
+  clientX,
+  clientY,
+  label,
+  category,
+  val,
+  extra,
+  visible = true,
+}: HoverTooltipProps) {
+  let x = clientX + OFFSET;
+  let y = clientY + OFFSET;
+
+  if (typeof window !== "undefined") {
+    if (x + EST_WIDTH > window.innerWidth) {
+      x = clientX - EST_WIDTH - OFFSET;
+    }
+    if (y + EST_HEIGHT > window.innerHeight) {
+      y = clientY - EST_HEIGHT - OFFSET;
+    }
+    if (x < 4) x = 4;
+    if (y < 4) y = 4;
+  }
+
   return (
     <div
-      className="absolute pointer-events-none z-20 px-3 py-2"
+      role="tooltip"
+      aria-live="polite"
+      aria-label={`${label}，${category}，引用 ${val} 次`}
+      className="fixed pointer-events-none z-[9998] px-3 py-2"
       style={{
-        left: x + 14,
-        top: y - 44,
+        left: x,
+        top: y,
+        opacity: visible ? 1 : 0,
+        transition: "opacity 0.15s ease",
         backgroundColor: "var(--bg-secondary)",
         border: "1px solid var(--border)",
-        borderRadius: "var(--radius-sm)",
+        borderRadius: 10,
+        maxWidth: 260,
         boxShadow: "var(--shadow-lg)",
-        maxWidth: 240,
       }}
     >
       <div
@@ -42,7 +74,9 @@ export function HoverTooltip({ x, y, label, category, val, extra }: HoverTooltip
           className="inline-block w-2 h-2 rounded-full shrink-0"
           style={{ backgroundColor: getCategoryColor(category) }}
         />
-        <span className="truncate">{category} · 引用 {val} 次</span>
+        <span className="truncate">
+          {category} · 引用 {val} 次
+        </span>
       </div>
       {extra && (
         <div

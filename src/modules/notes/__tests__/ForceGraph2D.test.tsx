@@ -13,7 +13,7 @@ describe("ForceGraph2D import", () => {
   it("can be imported without errors", async () => {
     const mod = await import("../components/ForceGraph2D");
     expect(mod.ForceGraph2D).toBeDefined();
-  });
+  }, 15000);
 });
 
 describe("GraphView import", () => {

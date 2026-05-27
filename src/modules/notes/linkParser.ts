@@ -134,6 +134,7 @@ export function buildLinkGraph(notes: Note[]): LinkGraph {
       target,
       label: edge?.label ?? null,
       value,
+      edgeType: 'solid', // 默认实线，第一版暂不支持跨文件虚线
     });
   }
 

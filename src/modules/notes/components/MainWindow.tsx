@@ -11,6 +11,9 @@ import type { MouseEvent } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
 import { exportMarkdownNote, importMarkdownNote } from "../api/export";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { RelationPreview } from "./RelationPreview";
+import { GalaxyPreview } from "./GalaxyPreview";
+import { MindMapEditor } from "./MindMapEditor";
 import {
   chooseNotesDirectory,
   getConfig,
@@ -48,7 +51,9 @@ import {
 } from "../../shared/utils/noteUtils";
 import type { CategoryGroup } from "../../shared/utils/noteUtils";
 import { useNoteStore } from "../stores/useNoteStore";
+import { useEditorStore } from "../../shared/stores/useEditorStore";
 import { usePlatform } from "../../shared/platform/usePlatform";
+import { getNotesInCategoryTree } from "../../shared/utils/categoryTree";
 import { SearchBar } from "./SearchBar";
 import { highlightText } from "../../shared/utils/highlightUtils";
 import { summarizeNote } from "../services/aiService";
@@ -62,6 +67,9 @@ import {
 } from "../noteContextMenu";
 import { openNotepadWindow, openTileWindow } from "../../windows/api";
 import { GraphView } from "./GraphView";
+import { getCategoryColor, setCategoryColors, getCustomCategoryColors } from "../../visualization/utils/colorMap";
+import { loadCategoryColors, saveCategoryColors } from "../../settings/categoryColors";
+import { CategoryColorPicker } from "../../settings/components/CategoryColorPicker";
 import {
   closeCurrentWindow,
   minimizeCurrentWindow,
@@ -259,11 +267,13 @@ export function MainWindow({
   const searchResults = useNoteStore((s) => s.searchResults);
   const loadFullNotes = useNoteStore((s) => s.loadFullNotes);
   const loadStoreNotes = useNoteStore((s) => s.loadNotes);
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>(
     normalizeViewMode(initialConfig?.defaultViewMode ?? "split"),
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
+  const [showMindMapEditor, setShowMindMapEditor] = useState(false);
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -295,9 +305,14 @@ export function MainWindow({
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [colorPickerCategory, setColorPickerCategory] = useState<string | null>(null);
+  const [categoryMenu, setCategoryMenu] = useState<{ x: number; y: number; category: string } | null>(null);
+  const [categoryMenuClosing, setCategoryMenuClosing] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   const { isMobile } = usePlatform();
+  const previewSubMode = useEditorStore((s) => s.previewSubMode);
+  const setPreviewSubMode = useEditorStore((s) => s.setPreviewSubMode);
 
   const selectedNote = useMemo(
     () => notes.find((note) => note.id === selectedId) ?? null,
@@ -317,17 +332,28 @@ export function MainWindow({
   );
 
   const filteredNotes = useMemo(() => {
-    if (!searchQuery.trim()) return notes;
-    if (searchResults.length > 0) {
-      return searchResults.map((r) => metadataFromNote(r.note));
+    // Category-scoped local search (sidebar search bar)
+    if (categorySearchQuery.trim()) {
+      const scoped = getNotesInCategoryTree(notes, activeCategory);
+      return filterNotes(scoped, categorySearchQuery);
     }
-    return filterNotes(notes, searchQuery);
-  }, [notes, searchQuery, searchResults]);
+    // Global search (top bar search)
+    if (searchQuery.trim()) {
+      if (searchResults.length > 0) {
+        return searchResults.map((r) => metadataFromNote(r.note));
+      }
+      return filterNotes(notes, searchQuery);
+    }
+    // No search: show all notes
+    return notes;
+  }, [notes, activeCategory, categorySearchQuery, searchQuery, searchResults]);
 
   const categoryGroups = useMemo(
     () => groupNotesByCategory(filteredNotes, categories),
     [filteredNotes, categories],
   );
+
+  const sidebarSearchQuery = categorySearchQuery.trim() || searchQuery;
 
   const lineCount = useMemo(() => content.split("\n").length, [content]);
   const byteSize = useMemo(
@@ -489,10 +515,11 @@ export function MainWindow({
     async function bootstrap() {
       setIsLoading(true);
       try {
-        const [loadedConfig, loadedNotes, loadedCategories] = await Promise.all([
+        const [loadedConfig, loadedNotes, loadedCategories, loadedColors] = await Promise.all([
           getConfig(),
           listNotes(),
           listCategories(),
+          loadCategoryColors(),
         ]);
         if (cancelled) return;
         setSettingsConfig(loadedConfig);
@@ -500,6 +527,7 @@ export function MainWindow({
         setViewMode(normalizeViewMode(loadedConfig.defaultViewMode));
         setNotes(loadedNotes);
         setCategories(loadedCategories);
+        setCategoryColors(loadedColors);
         void loadFullNotes();
         if (loadedNotes[0]) {
           const note = await getNote(loadedNotes[0].id);
@@ -572,6 +600,42 @@ export function MainWindow({
     }, 150);
     return () => window.clearTimeout(timer);
   }, [noteMenuClosing, noteMenu]);
+
+  useEffect(() => {
+    function closeCategoryMenu() {
+      setCategoryMenuClosing(true);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") closeCategoryMenu();
+    }
+    document.addEventListener("mousedown", closeCategoryMenu);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", closeCategoryMenu);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!categoryMenuClosing || !categoryMenu) return;
+    const timer = window.setTimeout(() => {
+      setCategoryMenu(null);
+      setCategoryMenuClosing(false);
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [categoryMenuClosing, categoryMenu]);
+
+  const handleCategoryColorConfirm = useCallback(
+    async (color: string) => {
+      if (!colorPickerCategory) return;
+      const newColors = { ...getCustomCategoryColors(), [colorPickerCategory]: color };
+      setCategoryColors(newColors);
+      await saveCategoryColors(newColors);
+      setColorPickerCategory(null);
+      void loadFullNotes();
+    },
+    [colorPickerCategory, loadFullNotes],
+  );
 
   const saveCurrentNote = useCallback(async () => {
     if (!selectedId) return null;
@@ -858,6 +922,13 @@ export function MainWindow({
     const note = noteMenuTarget;
     if (!note) return;
 
+    if (action === "reference") {
+      const title = note.title || "无标题笔记";
+      setNoteMenuClosing(true);
+      useEditorStore.getState().insertAtCursor?.(`[[${title}]]`);
+      return;
+    }
+
     if (action === "export") {
       setNoteMenuClosing(true);
       void handleExportNote(note);
@@ -925,6 +996,7 @@ export function MainWindow({
       await refreshNotes();
       if (activeCategory === name) {
         setActiveCategory("");
+        setCategorySearchQuery("");
       }
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -946,6 +1018,35 @@ export function MainWindow({
   const markDirty = () => {
     if (selectedId) setSaveState("dirty");
   };
+
+  const insertAtCursor = useCallback(
+    (text: string): boolean => {
+      const textarea = contentRef.current;
+      if (!textarea || !selectedId) {
+        alert("请先打开一篇笔记");
+        return false;
+      }
+      const { selectionStart, value } = textarea;
+      const before = value.slice(0, selectionStart);
+      const after = value.slice(selectionStart);
+      const newContent = before + text + after;
+      setContent(newContent);
+      markDirty();
+      requestAnimationFrame(() => {
+        textarea.focus();
+        const cursorPos = selectionStart + text.length;
+        textarea.setSelectionRange(cursorPos, cursorPos);
+      });
+      return true;
+    },
+    [selectedId],
+  );
+
+  useEffect(() => {
+    const store = useEditorStore.getState();
+    store.registerInsertAtCursor(insertAtCursor);
+    return () => store.unregisterInsertAtCursor();
+  }, [insertAtCursor]);
 
   const handleUndo = () => {
     if (!selectedId) return;
@@ -1172,7 +1273,12 @@ export function MainWindow({
                   : "w-[280px]"
             }`}
           >
-            <SearchBar resultCount={filteredNotes.length} />
+            <SearchBar
+              resultCount={filteredNotes.length}
+              localValue={categorySearchQuery}
+              onLocalChange={setCategorySearchQuery}
+              onLocalClear={() => setCategorySearchQuery("")}
+            />
 
             <div className="px-3 pb-2 shrink-0 space-y-1">
               <button
@@ -1216,9 +1322,29 @@ export function MainWindow({
             </div>
 
             <div className="flex items-center justify-between px-5 pb-1.5 shrink-0">
-              <span className="text-[10px] text-ink-ghost font-mono tracking-wider uppercase">
-                {filteredNotes.length} 篇笔记{externalFiles.length > 0 ? ` · ${externalFiles.length} 个外部文件` : ""}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-ink-ghost font-mono tracking-wider uppercase">
+                  {filteredNotes.length} 篇笔记{externalFiles.length > 0 ? ` · ${externalFiles.length} 个外部文件` : ""}
+                </span>
+                {activeCategory && (
+                  <button
+                    onClick={() => {
+                      setActiveCategory("");
+                      setCategorySearchQuery("");
+                    }}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-bamboo bg-bamboo-mist/50 hover:bg-bamboo-mist transition-colors cursor-pointer"
+                    title="点击取消筛选，显示全部笔记"
+                  >
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                    {activeCategory}
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => setShowCategoryInput(true)}
                 className="text-[10px] text-ink-ghost hover:text-bamboo transition-colors cursor-pointer"
@@ -1346,7 +1472,7 @@ export function MainWindow({
                               isSelected ? "text-bamboo" : "text-ink-soft"
                             }`}>
                               {searchQuery
-                                ? highlightText(getDisplayTitle(note), searchQuery)
+                                ? highlightText(getDisplayTitle(note), sidebarSearchQuery)
                                 : getDisplayTitle(note)}
                             </span>
                             <span className="text-[10px] text-ink-ghost font-mono tabular-nums shrink-0">
@@ -1354,8 +1480,8 @@ export function MainWindow({
                             </span>
                           </div>
                           <p className="text-[11px] text-ink-ghost leading-relaxed line-clamp-2 group-hover:text-ink-faint transition-colors">
-                            {searchQuery
-                              ? highlightText(note.preview || "空白笔记", searchQuery)
+                            {sidebarSearchQuery
+                              ? highlightText(note.preview || "空白笔记", sidebarSearchQuery)
                               : (note.preview || "空白笔记")}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
@@ -1373,6 +1499,7 @@ export function MainWindow({
                   }
 
                   const isCollapsed = collapsedCategories.has(group.category);
+                  const isActiveForFilter = activeCategory === group.category;
 
                   return (
                     <div key={group.category} className="px-2 mb-1.5">
@@ -1380,15 +1507,21 @@ export function MainWindow({
                         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg group/cat cursor-pointer select-none transition-all duration-200 ${
                           dragOverCategory === group.category
                             ? "bg-bamboo/15 border border-bamboo/40 ring-1 ring-bamboo/20"
-                            : isCollapsed
-                              ? "bg-bamboo/8 border border-bamboo/15"
-                              : "bg-bamboo/5 border border-bamboo/10 rounded-b-none"
+                            : isActiveForFilter
+                              ? "bg-bamboo/12 border border-bamboo/25"
+                              : isCollapsed
+                                ? "bg-bamboo/8 border border-bamboo/15"
+                                : "bg-bamboo/5 border border-bamboo/10 rounded-b-none"
                         }`}
-                        onClick={() => toggleCategoryCollapse(group.category)}
                         onContextMenu={(e) => {
                           e.preventDefault();
-                          setRenamingCategory(group.category);
-                          setRenameCategoryValue(group.category);
+                          e.stopPropagation();
+                          const menuWidth = 136;
+                          const menuHeight = 76;
+                          const x = Math.min(e.clientX, window.innerWidth - menuWidth - 4);
+                          const y = Math.min(e.clientY, window.innerHeight - menuHeight - 4);
+                          setCategoryMenuClosing(false);
+                          setCategoryMenu({ x: Math.max(4, x), y: Math.max(4, y), category: group.category });
                         }}
                         onDragOver={(e) => {
                           e.preventDefault();
@@ -1412,7 +1545,11 @@ export function MainWindow({
                           strokeWidth="2.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          className={`text-bamboo/50 shrink-0 transition-transform duration-200 ${isCollapsed ? "" : "rotate-90"}`}
+                          className={`text-bamboo/50 shrink-0 transition-transform duration-200 cursor-pointer ${isCollapsed ? "" : "rotate-90"}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCategoryCollapse(group.category);
+                          }}
                         >
                           <polyline points="9 18 15 12 9 6" />
                         </svg>
@@ -1425,10 +1562,15 @@ export function MainWindow({
                           strokeWidth="2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
-                          className="text-bamboo/50 shrink-0"
+                          className="shrink-0"
+                          style={{ color: getCategoryColor(group.category) }}
                         >
                           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                         </svg>
+                        <span
+                          className="w-2.5 h-2.5 rounded-sm shrink-0"
+                          style={{ backgroundColor: getCategoryColor(group.category) }}
+                        />
                         {renamingCategory === group.category ? (
                           <input
                             type="text"
@@ -1445,7 +1587,16 @@ export function MainWindow({
                             className="flex-1 min-w-0 px-1 text-[10px] font-mono text-ink bg-paper-warm/80 border border-bamboo/30 rounded"
                           />
                         ) : (
-                          <span className="text-[11px] text-bamboo/70 font-medium truncate">
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveCategory((prev) => prev === group.category ? "" : group.category);
+                              setCategorySearchQuery("");
+                            }}
+                            className={`text-[11px] font-medium truncate cursor-pointer ${
+                              isActiveForFilter ? "text-bamboo" : "text-bamboo/70"
+                            }`}
+                          >
                             {group.category}
                           </span>
                         )}
@@ -1508,8 +1659,8 @@ export function MainWindow({
                                       isSelected ? "text-bamboo" : "text-ink-soft"
                                     }`}
                                   >
-                                    {searchQuery
-                                      ? highlightText(getDisplayTitle(note), searchQuery)
+                                    {sidebarSearchQuery
+                                      ? highlightText(getDisplayTitle(note), sidebarSearchQuery)
                                       : getDisplayTitle(note)}
                                   </span>
                                   <span className="text-[10px] text-ink-ghost font-mono tabular-nums shrink-0">
@@ -1518,8 +1669,8 @@ export function MainWindow({
                                 </div>
 
                                 <p className="text-[11px] text-ink-ghost leading-relaxed line-clamp-2 group-hover:text-ink-faint transition-colors">
-                                  {searchQuery
-                                    ? highlightText(note.preview || "空白笔记", searchQuery)
+                                  {sidebarSearchQuery
+                                    ? highlightText(note.preview || "空白笔记", sidebarSearchQuery)
                                     : (note.preview || "空白笔记")}
                                 </p>
 
@@ -1843,12 +1994,45 @@ export function MainWindow({
                           </span>
                         </div>
                       )}
+                      {/* 预览子模式切换 */}
+                      <div className="px-4 pt-2 pb-1 shrink-0">
+                        <SlidingButtonGroup
+                          options={[
+                            { value: "markdown" as const, label: "Markdown" },
+                            { value: "relation" as const, label: "关系" },
+                            { value: "galaxy" as const, label: "星环" },
+                          ]}
+                          value={previewSubMode}
+                          onChange={setPreviewSubMode}
+                          buttonClassName="px-2.5 py-0.5 text-[10px]"
+                        />
+                      </div>
                       <div
                         className={`flex-1 overflow-y-auto px-6 pb-6 ${
-                          viewMode === "preview" ? "pt-3" : "pt-1"
+                          viewMode === "preview" ? "pt-1" : "pt-0"
                         }`}
                       >
-                        <MarkdownPreview content={content} fontSize={settingsConfig?.fontSize ?? 14} />
+                        {previewSubMode === "markdown" && (
+                          <MarkdownPreview content={content} fontSize={settingsConfig?.fontSize ?? 14} />
+                        )}
+                        {previewSubMode === "relation" && selectedId && (
+                          <RelationPreview noteId={selectedId} />
+                        )}
+                        {previewSubMode === "galaxy" && selectedId && (
+                          <div className="flex flex-col h-full">
+                            <div className="flex-1 min-h-0">
+                              <GalaxyPreview noteId={selectedId} notesDir={savedNotesDir || undefined} />
+                            </div>
+                            <div className="px-4 py-2 border-t border-paper-deep/10 shrink-0">
+                              <button
+                                onClick={() => setShowMindMapEditor(true)}
+                                className="w-full px-3 py-1.5 text-xs bg-bamboo/10 text-bamboo hover:bg-bamboo/20 rounded-md transition-colors"
+                              >
+                                编辑思维导图
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1901,6 +2085,32 @@ export function MainWindow({
         error={aiError}
         onClose={() => { setAiResult(null); setAiError(null); }}
       />
+
+      {/* 思维导图编辑器模态框 */}
+      {showMindMapEditor && selectedId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-paper rounded-xl shadow-2xl w-[90vw] h-[85vh] max-w-5xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-paper-deep/20">
+              <h2 className="text-sm font-semibold text-ink">思维导图编辑器</h2>
+              <button
+                onClick={() => setShowMindMapEditor(false)}
+                className="p-1 text-ink-ghost hover:text-ink rounded transition-colors"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <MindMapEditor
+                noteId={selectedId}
+                notesDir={savedNotesDir || undefined}
+                onSave={() => setShowMindMapEditor(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {noteMenu && noteMenuTarget && (
         <div
           className={`fixed z-[9999] min-w-[168px] py-1.5 bg-cloud/95 backdrop-blur-sm border border-paper-deep/50 rounded-lg overflow-hidden select-none ${noteMenuClosing ? "animate-menu-exit" : "animate-menu-enter"}`}
@@ -1953,6 +2163,40 @@ export function MainWindow({
           )}
         </div>
       )}
+      {categoryMenu && (
+        <div
+          className={`fixed z-[9999] min-w-[136px] py-1.5 bg-cloud/95 backdrop-blur-sm border border-paper-deep/50 rounded-lg overflow-hidden select-none ${categoryMenuClosing ? "animate-menu-exit" : "animate-menu-enter"}`}
+          style={{ left: categoryMenu.x, top: categoryMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              setCategoryMenuClosing(true);
+              setRenamingCategory(categoryMenu.category);
+              setRenameCategoryValue(categoryMenu.category);
+            }}
+            className="w-full flex items-center px-3 py-1.5 text-[12px] font-body text-ink-soft hover:bg-bamboo-mist/60 hover:text-bamboo transition-colors cursor-pointer"
+          >
+            重命名
+          </button>
+          <button
+            onClick={() => {
+              setColorPickerCategory(categoryMenu.category);
+              setCategoryMenuClosing(true);
+            }}
+            className="w-full flex items-center px-3 py-1.5 text-[12px] font-body text-ink-soft hover:bg-bamboo-mist/60 hover:text-bamboo transition-colors cursor-pointer border-t border-paper-deep/20"
+          >
+            设置颜色…
+          </button>
+        </div>
+      )}
+      <CategoryColorPicker
+        open={colorPickerCategory !== null}
+        category={colorPickerCategory ?? ""}
+        currentColor={colorPickerCategory ? getCategoryColor(colorPickerCategory) : undefined}
+        onConfirm={(color) => void handleCategoryColorConfirm(color)}
+        onCancel={() => setColorPickerCategory(null)}
+      />
     </div>
   );
 }

@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestSurfaceAction } from "../../windows/surfaceActions";
 import { tileContextMenuItems } from "../../windows/tileContextMenu";
+import { useEditorStore } from "../stores/useEditorStore";
+import { NotePickerModal } from "../../notes/components/NotePickerModal";
 
 interface MenuState {
   x: number;
@@ -20,6 +22,7 @@ interface MenuState {
 export function ContextMenuProvider({ children }: { children: React.ReactNode }) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [menuClosing, setMenuClosing] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,7 +50,7 @@ export function ContextMenuProvider({ children }: { children: React.ReactNode })
       let x = event.clientX;
       let y = event.clientY;
       const menuWidth = 160;
-      const menuHeight = tileTarget ? 150 : 170;
+      const menuHeight = tileTarget ? 150 : 210;
       if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 4;
       if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 4;
 
@@ -143,6 +146,16 @@ export function ContextMenuProvider({ children }: { children: React.ReactNode })
             action: () => runCommand("selectAll"),
             disabled: false,
           },
+          { separator: true as const },
+          {
+            label: "引用笔记",
+            shortcut: "",
+            action: () => {
+              setPickerOpen(true);
+              dismissMenu();
+            },
+            disabled: false,
+          },
         ]
     : [];
 
@@ -184,6 +197,14 @@ export function ContextMenuProvider({ children }: { children: React.ReactNode })
           )}
         </div>
       )}
+      <NotePickerModal
+        open={pickerOpen}
+        onSelect={(title) => {
+          useEditorStore.getState().insertAtCursor?.(`[[${title}]]`);
+          setPickerOpen(false);
+        }}
+        onClose={() => setPickerOpen(false)}
+      />
     </>
   );
 }

@@ -9,7 +9,9 @@
 ## 功能特性
 
 - **Markdown 编辑与预览** — 支持 GitHub Flavored Markdown 语法，三模式切换（编辑 / 分栏 / 预览）
+- **多态预览** — 预览视图支持三种模式自由切换：标准 Markdown 渲染、文件关系卡片（展示当前笔记的引用网络）、星环联想卡片（展示与当前笔记关联的思维导图星系视图），满足不同场景下的信息消费需求。
 - **分类管理** — 文件夹子目录分类，支持嵌套层级（如 `技术/前端`），支持新建、重命名、删除，笔记拖拽移动分类
+- **增强分类管理** — 笔记列表区顶部增加「新建文件夹」按钮，快速创建多级分类目录。每个文件夹旁显示自定义色块（或文件夹周围环绕色带），不同文件夹内的笔记在关系图谱、星团图中以对应颜色标识，实现跨文件夹引用关系的直观可视化。支持右键文件夹打开颜色选择器（色轮+RGB滑块+12预设色），自定义颜色自动持久化并实时应用到所有图谱节点
 - **快捷便签** — 全局快捷键（Ctrl+Space）唤出独立极简编辑器：独立标题输入+正文编辑区、自动预创建笔记、900ms 自动保存、窗口池预热复用（`notepad:activate` 确保每次全新空白）、一键关闭回池或转为磁贴、冷灰调独立视觉风格（#f3f5f8 / 钢蓝 accent）、**快捷便签不再创建独立子文件夹**
 - **磁贴模式** — 将笔记固定在桌面某处，置于顶层，支持跟随系统主题颜色 + 深色模式自动适配（#191919），rounded-2xl 圆角（16px） + 柔和阴影，**8 方向边缘 & 对角缩放手柄**（N/S/E/W + NW/NE/SW/SE 共 8 个柄），四角 SVG 角标，chroma-js 动态颜色混合，磁贴生命周期事件（`tile-window-closed` / `tile-window-unpinned`）
 - **自动保存** — 主窗口笔记与小窗笔记均支持 900ms 防抖自动保存
@@ -20,9 +22,18 @@
 - **Wiki-Link 解析** — 支持 `[[笔记标题]]` 和 `[[笔记标题|别名]]` 语法，自动解析笔记间引用关系
 - **文件关系图谱** — 基于 d3-force 的 2D 力导向图谱，节点按引用次数线性映射 8~40px（d3.scaleLinear），分类填色（colorMap 10 色调色板 + 暗色模式自适应），白色 2px 描边，标签置顶 4px（11px / var(--text-primary) / 8 字截断），贝塞尔曲线边 + 方向箭头，hover 节点 1.2x + 关联节点 1.1x + 关联边加粗高亮，点击联动 store.setSelectedNode，GraphToolbar（36px / 力强度 0.1~2.0 / 重置）
 - **思维导图星系** — React SVG 组件化星系：StarNode（r:30px, CSS @keyframes pulse 呼吸动画 3s, 白描边 2px, d3-drag 可拖拽, 点击聚焦）、PlanetNode（r:6~18px d3.scaleLinear 按引用映射, SVG`<title>` 悬停标题, 白描边 1.5px）、OrbitRing（虚线圆 `stroke:var(--border) stroke-dasharray:4 4`）、GalaxyCanvas（全尺寸 SVG, 恒星圆周布局 + 行星多层环均匀分布, 跨分类贝塞尔虚线连线, 点击恒星聚焦 opacity 0.2 过渡, 缩放 0.2~3x + 平移）
+- **思维导图文件格式** — 支持导入/导出标准思维导图格式（如 `.xmind`、`.mm` 或自定义 JSON），并在星系视图中自动解析为恒星‑行星结构。星环可视化卡片可直接关联并渲染本地思维导图文件，实现大纲笔记与脑图的一体化。
+- **关系卡片** — 预览区新增关系卡片模式，展示当前笔记的引用网络：分为"引用此笔记"（incoming）和"此笔记引用"（outgoing）两个列表，列表项为笔记标题，点击可跳转，支持 O(1) 查询优化
+- **星环视图** — 预览区新增星环联想卡片模式：中心节点（当前笔记或思维导图根标题）固定画布中央，子节点围绕中心排列在圆形轨道上，节点形状根据引用关系自动变化（圆形=非叶子、方形=叶子、三角形=被引用、六边形=双向引用），最多显示 16 个节点，超出显示"更多"按钮，支持右键关联/取消关联笔记
+- **思维导图编辑器** — 独立树状图编辑组件，使用 react-d3-tree 实现，支持添加/删除/重命名节点、拖拽调整父子关系、导入导出（.xmind/.mm/.json），保存后自动同步星环视图
+- **引用连线样式** — 关系图谱中支持实线/虚线区分引用类型：笔记→笔记（Wiki-Link）为实线，同一思维导图内叶子节点相互引用为实线（跨文件引用为虚线，第一版暂缓实现）
+- **深色模式对比度优化** — 所有图谱节点自动检测 WCAG AA 对比度标准（3:1），对比度不足时自动调整亮度并添加轮廓边，确保深色/浅色模式下均可读
+- **节点智能提示** — 在关系图谱、思维导图星系、引用星团图中，鼠标悬浮任意圆形节点时，在光标附近显示半透明卡片（笔记文件名、分类、引用次数），鼠标离开后 0.15s 淡出消失；点击节点时在图谱顶部固定显示当前选中节点文件名，支持一键清除；提示框自动检测视口边缘不超出屏幕，深色/浅色主题自动适配，支持 aria-live 无障碍访问
 - **引用星团图** — 基于 d3-force 的 2D 力导向引用关系图，展示笔记间引用网络，支持简化模式嵌入卡片
+- **节点智能提示** — 在关系图谱、思维导图星系、引用星团图中，鼠标悬浮或点击任意圆形节点时，于光标右上角（或卡片顶部固定区域）实时显示该节点对应的笔记文件名，提升大规模图谱的可读性。
 - **图谱仪表盘** — 动态卡片网格（ResizeObserver 1/2/3 列自适应）：统计概览合并卡片、文件关系图、思维导图星系、星团图、分类分布环形图、引用排行；仪表盘编辑模式（TopBar 铅笔按钮切换，编辑模式下卡片显示红色 × 直删 + 底部「添加组件/保存布局」按钮）
-- **搜索增强** — 基于 Fuse.js 的模糊搜索 + 图谱节点高亮：2D 关系图 d3 选择器绿色描边高亮匹配节点 + 星系图行星 fill 颜色变化
+- **搜索增强** — 基于 Fuse.js 的模糊搜索 + 图谱节点高亮：2D 关系图 d3 选择器绿色描边高亮匹配节点 + 星系图行星 fill 颜色变化；顶部搜索框全局搜索所有分类，侧边栏搜索框仅搜索当前文件夹及子文件夹内的笔记
+- **智能引用** — 三种场景快速插入 `[[笔记标题]]` 引用：①编辑器正文右键菜单→弹出笔记选择器→选择插入；②左侧笔记列表条目右键→「引用笔记」→直接插入；③顶部/侧边栏搜索结果条目右键→直接插入引用。笔记选择器支持模糊搜索过滤、键盘导航、边界检测
 - **AI 总结** — 支持配置 OpenAI 风格 API，**流式生成**（SSE + AbortController 逐字渲染 + 随时停止），一键对当前笔记生成智能摘要，API Key 本地加密存储
 - **一键导出 PDF** — 将当前笔记导出为 PDF 文件，保留 Markdown 样式（代码高亮、表格、图片），支持分页
 - **品牌安装界面** — 基于 NSIS 的中国风安装/卸载向导，毛笔字体标题、水墨装饰、篆刻印章，与应用 UI 颜色系统统一
@@ -47,6 +58,8 @@
 | Markdown | react-markdown + remark-gfm + remark-wiki-link | — |
 | PDF 导出 | html2pdf.js | ^0.14.0 |
 | 可视化 | d3-force（2D 力导向图谱） | — |
+| 思维导图解析 | jszip（.xmind 解压） | ^3.10.1 |
+| 思维导图编辑 | react-d3-tree（树状图布局） | ^3.6.1 |
 | 搜索 | Fuse.js | ^7.3.0 |
 | AI | openai (npm) + fetch | — |
 | 存储加密 | tauri-plugin-store | v2 |
@@ -119,20 +132,29 @@ src/
 | 模块 | 完成度 | 说明 |
 |------|--------|------|
 | **笔记 CRUD** | 100% | 创建、读取、更新、删除，前端 API + Rust 后端完整 |
-| **分类管理** | 100% | 增删改查分类，笔记拖拽移动，元数据同步 |
+| **分类管理** | 100% | 增删改查分类，笔记拖拽移动，元数据同步，自定义颜色（色轮+RGB+预设色），图谱节点颜色跟随 |
 | **配置持久化** | 100% | 读写 config.json，修改后同步运行时（快捷键/自启） |
 | **多窗口** | 100% | QuickNote 独立便签（冷灰调视觉+窗口池复用+`recycleCurrentNotepad`）、磁贴窗口、自定义标题栏拖拽 |
 | **托盘** | 100% | 菜单项完整（显示、快速记录、开关键盘启动、退出） |
 | **全局快捷键** | 100% | Ctrl+Space 唤出快捷便签，窗口池预热 2 个实例，`notepad:activate` 事件确保每次全新空白 |
 | **导入导出** | 100% | Markdown 双向导入导出，文件对话框集成 |
 | **外部文件引用** | 100% | 直接读写外部 .md 文件 |
-| **搜索** | 100% | 基于 Fuse.js 实现模糊搜索，支持相关性排序和关键词高亮 |
+| **搜索** | 100% | 基于 Fuse.js 实现模糊搜索，支持相关性排序和关键词高亮；顶部全局搜索 + 侧边栏分类范围搜索（当前文件夹及子文件夹） |
+| **智能引用** | 100% | 编辑器/笔记列表/搜索结果三入口右键引用，NotePickerModal 笔记选择器（模糊搜索+键盘导航），useEditorStore 全局插入函数 |
 | **AI 客户端** | 100% | 支持自定义 API Key，流式逐字生成（SSE + AbortController），可随时停止生成 |
 | **Markdown→PDF** | 100% | 基于 html2pdf.js 实现，支持样式保留和分页 |
 | **图谱仪表盘** | 100% | 1/2/3 列自适应卡片网格，统计概览合并卡片，编辑模式（铅笔按钮一键切换卡片添加/直删），拖拽排序+localStorage 布局持久化，AddComponentDrawer 右侧抽屉 |
 | **文件关系图谱** | 100% | 2D 力导向图，节点 8~40px 白色 2px 描边，11px 标签截断 8 字，贝塞尔曲线边+箭头，光晕效果，hover 高亮关联路径+tooltip，300ms 切换动画，力强度滑块 |
 | **思维导图星系** | 100% | 恒星（r:30px 呼吸脉动）/行星（r:6~18px）/轨道线拆分组件，d3-force 模拟，展开距离/轨道密度滑块，轨道/连线开关，点击聚焦分类，flow 动画，activeFilters 联动 |
 | **引用星团图** | 100% | 2D 力导向引用关系图，力强度可调，简化模式嵌入卡片 |
+| **节点智能提示** | 100% | HoverTooltip 统一组件（fixed 定位+视口坐标+边缘检测+aria-live），ForceGraph2D/MindMapGalaxy/GalaxyCanvas/CitationBubble 四图谱统一悬浮提示，SelectedNodeBar 点击固定显示文件名 |
+| **关系卡片** | 100% | 预览区关系卡片模式，展示 incoming/outgoing 引用列表，O(1) 查询优化（预构建 outgoingMap/incomingMap） |
+| **星环视图** | 100% | 星环联想卡片模式，中心节点+圆形轨道布局，节点形状自动识别（圆形/方形/三角形/六边形），最多 16 节点+分页，右键关联/取消关联，深色模式对比度自适应 |
+| **思维导图文件解析** | 100% | 支持 .xmind（ZIP+content.json）、.mm（FreeMind XML）、.json 三种格式导入导出，UUID 节点标识，jszip 解压，DOMParser 解析 XML |
+| **思维导图存储** | 100% | .mindmaps 目录存储，mindmap-index.json 索引文件，Tauri Rust 后端文件读写命令 |
+| **思维导图编辑器** | 100% | react-d3-tree 树状图编辑，添加/删除/重命名节点，拖拽调整父子关系，保存后自动同步星环视图 |
+| **引用连线样式** | 90% | GraphEdge 新增 edgeType 字段，ForceGraph2D 根据 edgeType 渲染实线/虚线，第一版仅支持同一文件内实线引用 |
+| **深色模式对比度** | 100% | colorMap.ts 新增 WCAG AA 对比度检测（3:1），getAccessibleNodeColor/getAccessibleNodeStroke 自动调整亮度+添加轮廓边 |
 | **磁贴系统** | 100% | 基于 chroma-js 动态颜色混合 + 四角 SVG 角标 + 磁贴生命周期事件（`tile-window-closed` / `tile-window-unpinned`）+ 原 Achilng 颜色算法对齐（luminance 0.18 + chroma.mix.alpha） |
 | **移动端** | 85% | 底部 TabBar、侧栏抽屉适配、触控优化、核心功能可用（磁贴/便签窗口暂不适用） |
 | **平台抽象层** | 100% | `src/modules/shared/platform/` 提供平台检测、usePlatform Hook、响应式尺寸订阅 |
@@ -159,12 +181,12 @@ floral-notepaper/
 │       ├── shared/                   # 跨模块共享
 │       │   ├── types/                # 全局类型（notes.ts, settings.ts）
 │       │   ├── platform/             # 平台抽象层（types.ts, index.ts, usePlatform.ts）
-│       │   ├── stores/               # 全局 stores（useAppModeStore.ts）
+│       │   ├── stores/               # 全局 stores（useAppModeStore.ts, useEditorStore.ts）
 │       │   ├── hooks/                # 通用 hooks
-│       │   ├── utils/                # 通用工具（noteUtils.ts, highlightUtils.tsx）
+│       │   ├── utils/                # 通用工具（noteUtils.ts, highlightUtils.tsx, categoryTree.ts）
 │       │   └── components/           # 通用 UI（ContextMenu, SlidingButtonGroup, MobileTabBar, MobileBottomSheet）
 │       ├── notes/                    # 笔记管理模块
-│       │   ├── components/           # MainWindow, MarkdownPreview, ForceGraph2D, GraphView, AiSummaryModal, SearchBar
+│       │   ├── components/           # MainWindow, MarkdownPreview, ForceGraph2D, GraphView, AiSummaryModal, SearchBar, NotePickerModal
 │       │   ├── stores/               # Zustand store（useNoteStore.ts）
 │       │   ├── services/             # 搜索服务（searchService.ts）、AI 服务（aiService.ts 流式+非流式）、PDF 导出（pdfExportService.ts）
 │       │   ├── hooks/                # useGraphData, useNotes, useDebounce
@@ -182,8 +204,8 @@ floral-notepaper/
 │       │   ├── noteSurfaceSavePolicy.ts
 │       │   └── windowRoutes.ts       # 视图路由
 │       ├── settings/                 # 设置模块
-│       │   ├── components/           # SettingsPanel
-│       │   ├── api.ts, theme.ts, tileColor.ts, ai.ts, shortcutRecorder.ts
+│       │   ├── components/           # SettingsPanel, CategoryColorPicker
+│       │   ├── api.ts, theme.ts, tileColor.ts, ai.ts, categoryColors.ts, shortcutRecorder.ts
 │       │   └── types.ts
 │       └── visualization/            # 可视化模块
 │           ├── components/
@@ -191,7 +213,7 @@ floral-notepaper/
 │           │   ├── cards/            # 卡片内容组件（RelationGraphCard, GalaxyCard, CategoryDonutCard, CitationRankingCard, CitationBubbleCard, SummaryStatsCard）
 │           │   ├── RelationGraph/    # 文件关系图
 │           │   ├── MindMapGalaxy/    # 思维导图星系
-│           │   └── shared/           # CanvasContainer, HoverTooltip
+│           │   └── shared/           # CanvasContainer, HoverTooltip, SelectedNodeBar
 │           ├── stores/               # useGraphStore + useVisualizationStore（zustand persist + 版本迁移）
 │           ├── hooks/                # useGalaxyLayout, useVisibility
 │           └── utils/                # colorMap（分类颜色映射）
@@ -235,6 +257,30 @@ npm run tauri build
 构建产物输出到 `src-tauri/target/release/bundle/`。
 
 开发服务器端口为 `http://localhost:1420`，Tauri 配置的窗口初始大小为 1180×760（最小 900×620）。
+
+## 版权与合规声明
+
+### 开源许可证合规
+
+本项目基于 [MIT 许可证](LICENSE) 开源。原始代码版权归 [Achilng](https://github.com/Achilng) 所有，修改部分版权归 Maplar 所有。MIT 许可证允许自由使用、修改、分发和商业应用，但**必须保留原始版权和许可声明**。
+
+本程序所使用的第三方组件（Tauri、React、d3‑force、TailwindCSS 等）均采用 MIT / BSD‑3‑Clause / Apache 2.0 等宽松许可证，未引入 GPL 类传染性协议。组件清单及许可证文本可于源代码仓库中查看。
+
+### 第三方文件格式兼容性
+
+- **思维导图文件**（如 `.xmind`、`.mm`）：本项目仅基于公开的格式规范或标准文档实现导入/导出功能，不复制、不逆向任何非开源软件的专有代码。用户使用本功能时，应自行确保原始文件拥有合法使用权。
+- **外部 Markdown 文件**：本项目可作为系统默认编辑器打开任意 `.md` 文件，但不会修改文件版权归属。
+
+### 视觉设计与功能借鉴
+
+- **Obsidian 参考**：本软件中图谱布局、力导向交互、悬浮提示等设计遵循行业内通用的表达方式（力导向图、节点链接图等），未复制 Obsidian 专有的界面配色序列、图标集或整体布局比例。如存在偶然相似，纯属技术实现趋同。
+- **通用交互模式**：所有可视化组件均基于开源技术（d3‑force、SVG/Canvas）自主实现，未对任何商业软件进行逆向工程或直接复制其源代码。
+
+### AI 总结功能免责
+
+AI 总结功能仅作为辅助工具，生成的内容由用户自行判断其准确性及合规性。本程序不存储、不上传用户的 API Key 或笔记内容至第三方服务器（用户自行配置的 OpenAI 兼容接口除外）。因使用 AI 功能引发的任何版权或法律纠纷，本程序开发者不承担责任。
+
+> 本声明仅为善意合规提示，不替代专业法律意见。如有商业部署需求，建议咨询知识产权律师。
 
 ## 许可证
 

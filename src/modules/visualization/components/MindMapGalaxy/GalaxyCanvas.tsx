@@ -14,6 +14,7 @@ import { StarNode } from "./StarNode.tsx";
 import { OrbitRing } from "./OrbitRing.tsx";
 import { PlanetNode } from "./PlanetNode.tsx";
 import { getCategoryColor } from "../../utils/colorMap";
+import { HoverTooltip } from "../shared/HoverTooltip";
 
 /* ── 类型 ── */
 
@@ -96,6 +97,13 @@ export function GalaxyCanvas({
   const [focusedCategory, setFocusedCategory] = useState<string | null>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [tooltip, setTooltip] = useState<{
+    clientX: number;
+    clientY: number;
+    label: string;
+    category: string;
+    val: number;
+  } | null>(null);
 
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
@@ -265,6 +273,7 @@ export function GalaxyCanvas({
   }
 
   return (
+    <>
     <svg
       width="100%"
       height="100%"
@@ -331,6 +340,13 @@ export function GalaxyCanvas({
               val={planet.val}
               maxVal={globalMaxVal}
               onClick={onNoteClick}
+              onHoverStart={(e, title) =>
+                setTooltip({ clientX: e.clientX, clientY: e.clientY, label: title, category: planet.categoryName, val: planet.val })
+              }
+              onHoverMove={(e) =>
+                setTooltip((prev) => (prev ? { ...prev, clientX: e.clientX, clientY: e.clientY } : prev))
+              }
+              onHoverEnd={() => setTooltip(null)}
             />
           </g>
         ))}
@@ -348,10 +364,27 @@ export function GalaxyCanvas({
               cx={star.x}
               cy={star.y}
               onFocus={handleStarFocus}
+              onHoverStart={(e, cat) =>
+                setTooltip({ clientX: e.clientX, clientY: e.clientY, label: cat, category: cat, val: 0 })
+              }
+              onHoverMove={(e) =>
+                setTooltip((prev) => (prev ? { ...prev, clientX: e.clientX, clientY: e.clientY } : prev))
+              }
+              onHoverEnd={() => setTooltip(null)}
             />
           </g>
         ))}
       </g>
     </svg>
+    {tooltip && (
+      <HoverTooltip
+        clientX={tooltip.clientX}
+        clientY={tooltip.clientY}
+        label={tooltip.label}
+        category={tooltip.category}
+        val={tooltip.val}
+      />
+    )}
+    </>
   );
 }

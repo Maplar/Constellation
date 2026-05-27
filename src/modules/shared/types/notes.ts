@@ -61,9 +61,38 @@ export interface GraphEdge {
   target: string;
   label: string | null;
   value: number;
+  edgeType?: 'solid' | 'dashed';  // 实线/虚线，用于区分引用类型
 }
 
 export interface LinkGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
+}
+
+/**
+ * @copyright Copyright (c) 2026 Maplar
+ * 基于 floral-notepaper 二次开发新增：预览子模式
+ */
+
+export type PreviewSubMode = "markdown" | "relation" | "galaxy";
+
+/**
+ * @copyright Copyright (c) 2026 Maplar
+ * 基于 floral-notepaper 二次开发新增：思维导图类型
+ */
+
+export interface MindMapNode {
+  nodeId: string;           // UUID，节点创建时生成
+  title: string;
+  children: MindMapNode[];
+  linkedNoteId: string | null;  // 仅叶子节点可关联
+}
+
+export interface MindMapData {
+  version: string;
+  root: MindMapNode;
+}
+
+export interface MindMapIndex {
+  [noteId: string]: string; // noteId → mindmap 文件相对路径
 }

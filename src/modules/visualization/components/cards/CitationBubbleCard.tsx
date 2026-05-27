@@ -6,6 +6,7 @@
 import { useMemo } from "react";
 import { CitationBubble } from "../CitationBubble";
 import { useNoteStore } from "../../../notes/stores/useNoteStore";
+import { SelectedNodeBar } from "../shared/SelectedNodeBar";
 
 export function CitationBubbleCardContent() {
   const { linkGraph } = useNoteStore();
@@ -20,8 +21,9 @@ export function CitationBubbleCardContent() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 relative">
         <CitationBubble />
+        <SelectedNodeBar className="absolute top-2 left-1/2 -translate-x-1/2 z-30" />
       </div>
       <div
         className="shrink-0 flex items-center gap-3 px-3 h-9 border-t"

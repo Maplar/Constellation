@@ -8,6 +8,7 @@ import * as d3 from "d3";
 import { useNoteStore } from "../stores/useNoteStore";
 import { useGraphStore } from "../../visualization/stores/useGraphStore";
 import { getCategoryColor, getCategoryColorWithOpacity } from "../../visualization/utils/colorMap";
+import { HoverTooltip } from "../../visualization/components/shared/HoverTooltip";
 
 interface ForceGraph2DProps {
   onNodeClick?: (noteId: string) => void;
@@ -35,6 +36,7 @@ interface SimLink extends d3.SimulationLinkDatum<SimNode> {
   target: string | SimNode;
   label: string | null;
   value: number;
+  edgeType?: 'solid' | 'dashed';
 }
 
 interface TooltipInfo {
@@ -42,8 +44,8 @@ interface TooltipInfo {
   label: string;
   category: string;
   val: number;
-  x: number;
-  y: number;
+  clientX: number;
+  clientY: number;
 }
 
 function resolveThemeColors(): {
@@ -202,6 +204,7 @@ export function ForceGraph2D({
       target: e.target,
       label: e.label,
       value: e.value,
+      edgeType: e.edgeType || 'solid',
     }));
 
     const neighborMap = new Map<string, Set<string>>();
@@ -236,7 +239,10 @@ export function ForceGraph2D({
       )
       .attr("stroke-opacity", 0.5)
       .attr("marker-end", "url(#arrow)")
-      .attr("stroke-dasharray", simplified ? "4,4" : "none");
+      .attr("stroke-dasharray", (d: SimLink) => {
+        if (simplified) return "4,4";
+        return d.edgeType === 'dashed' ? "5,5" : "none";
+      });
 
     /* ── Node rendering with fade-in ── */
     const nodeElements = nodeGroup
@@ -249,22 +255,20 @@ export function ForceGraph2D({
       .on("mouseenter", (event: MouseEvent, d: SimNode) => {
         hoveredRef.current = d.id;
         onNodeHover?.(d.id);
-        const rect = container.getBoundingClientRect();
         setTooltip({
           nodeId: d.id,
           label: d.label,
           category: d.category,
           val: d.val,
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top,
+          clientX: event.clientX,
+          clientY: event.clientY,
         });
         updateHighlight();
       })
       .on("mousemove", (event: MouseEvent) => {
-        const rect = container.getBoundingClientRect();
         setTooltip((prev) =>
           prev
-            ? { ...prev, x: event.clientX - rect.left, y: event.clientY - rect.top }
+            ? { ...prev, clientX: event.clientX, clientY: event.clientY }
             : prev,
         );
       })
@@ -503,39 +507,14 @@ export function ForceGraph2D({
       className="w-full h-full min-h-0 overflow-hidden relative"
     >
       <svg ref={svgRef} className="w-full h-full" />
-      {/* Tooltip overlay */}
       {tooltip && (
-        <div
-          className="absolute pointer-events-none z-20 px-3 py-2"
-          style={{
-            left: tooltip.x + 14,
-            top: tooltip.y - 44,
-            backgroundColor: "var(--bg-secondary)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-sm)",
-            maxWidth: 220,
-            boxShadow: "var(--shadow-lg)",
-          }}
-        >
-          <div
-            className="text-[12px] font-medium whitespace-nowrap overflow-hidden text-ellipsis"
-            style={{ color: "var(--text-primary)" }}
-          >
-            {tooltip.label}
-          </div>
-          <div
-            className="text-[10px] flex items-center gap-2 mt-0.5"
-            style={{ color: "var(--text-muted)" }}
-          >
-            <span
-              className="inline-block w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: getCategoryColor(tooltip.category) }}
-            />
-            <span className="truncate">
-              {tooltip.category} · 引用 {tooltip.val} 次
-            </span>
-          </div>
-        </div>
+        <HoverTooltip
+          clientX={tooltip.clientX}
+          clientY={tooltip.clientY}
+          label={tooltip.label}
+          category={tooltip.category}
+          val={tooltip.val}
+        />
       )}
     </div>
   );

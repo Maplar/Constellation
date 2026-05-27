@@ -15,6 +15,7 @@ import { GalaxyToolbar } from "./MindMapGalaxy/GalaxyToolbar";
 import { renderStarNodes, startStarBreathingAnimation } from "./MindMapGalaxy/StarNode";
 import { renderPlanetNodes } from "./MindMapGalaxy/PlanetNode";
 import { renderOrbitRings } from "./MindMapGalaxy/OrbitRing";
+import { HoverTooltip } from "./shared/HoverTooltip";
 
 export function MindMapGalaxy() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -25,6 +26,13 @@ export function MindMapGalaxy() {
   const { searchQuery, selectNode, activeFilters, graphParams } = useGraphStore();
 
   const [focusedCategory, setFocusedCategory] = useState<string | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    clientX: number;
+    clientY: number;
+    label: string;
+    category: string;
+    val: number;
+  } | null>(null);
 
   /* ── Filter notes by activeFilters ── */
   const filteredNotes = useMemo(() => {
@@ -237,9 +245,22 @@ export function MindMapGalaxy() {
 
     /* ── Hover effects ── */
     nodeElements
-      .on("mouseenter", function (this: BaseType | SVGGElement, _event: MouseEvent, d: GalaxyNode) {
+      .on("mouseenter", function (this: BaseType | SVGGElement, event: MouseEvent, d: GalaxyNode) {
         d3.select(this as SVGGElement).select("circle").transition().duration(150).attr("r", d.radius * 1.15);
         d3.select(this as SVGGElement).select("text").transition().duration(150).attr("opacity", 0.95);
+        setTooltip({
+          clientX: event.clientX,
+          clientY: event.clientY,
+          label: d.label,
+          category: d.categoryId,
+          val: d.val,
+        });
+      })
+      .on("mousemove", function (_event: MouseEvent) {
+        const e = _event as MouseEvent;
+        setTooltip((prev) =>
+          prev ? { ...prev, clientX: e.clientX, clientY: e.clientY } : prev,
+        );
       })
       .on("mouseleave", function (this: BaseType | SVGGElement, _event: MouseEvent, d: GalaxyNode) {
         d3.select(this as SVGGElement)
@@ -261,6 +282,7 @@ export function MindMapGalaxy() {
             }
             return d.val >= 3 ? 0.9 : 0;
           });
+        setTooltip(null);
       });
 
     /* ── Star dots for ambiance ── */
@@ -306,6 +328,15 @@ export function MindMapGalaxy() {
           >
             恢复全局视图
           </button>
+        )}
+        {tooltip && (
+          <HoverTooltip
+            clientX={tooltip.clientX}
+            clientY={tooltip.clientY}
+            label={tooltip.label}
+            category={tooltip.category}
+            val={tooltip.val}
+          />
         )}
       </div>
     </CanvasContainer>

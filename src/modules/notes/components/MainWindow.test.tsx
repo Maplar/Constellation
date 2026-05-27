@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { MainWindow, runEditorUndo } from "./MainWindow";
 
-vi.mock("../modules/notes/services/pdfExportService", () => ({
+vi.mock("../services/pdfExportService", () => ({
   exportToPDF: vi.fn(),
   pdfFileName: vi.fn((title: string) => `${title}.pdf`),
 }));

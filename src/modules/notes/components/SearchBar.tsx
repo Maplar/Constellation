@@ -11,38 +11,70 @@ interface SearchBarProps {
   resultCount?: number;
   placeholder?: string;
   debounceMs?: number;
+  localValue?: string;
+  onLocalChange?: (value: string) => void;
+  onLocalClear?: () => void;
 }
 
 export function SearchBar({
   resultCount,
   placeholder = "搜索笔记…",
   debounceMs = 200,
+  localValue,
+  onLocalChange,
+  onLocalClear,
 }: SearchBarProps) {
   const searchQuery = useNoteStore((s) => s.searchQuery);
   const searchResults = useNoteStore((s) => s.searchResults) ?? [];
   const setSearchQuery = useNoteStore((s) => s.setSearchQuery);
 
-  const [inputValue, setInputValue] = useState(searchQuery);
+  const controlled = onLocalChange !== undefined;
+  const [inputValue, setInputValue] = useState(controlled ? (localValue ?? "") : searchQuery);
   const debouncedValue = useDebounce(inputValue, debounceMs);
 
-  // Sync debounced value to store
+  // Controlled mode: sync localValue prop → input
   useEffect(() => {
-    setSearchQuery(debouncedValue);
-    // setSearchQuery is stable (zustand selector)
-  }, [debouncedValue]);
+    if (controlled) {
+      setInputValue(localValue ?? "");
+    }
+  }, [controlled, localValue]);
 
-  // Sync store → local (handles clear from external sources)
+  // Uncontrolled mode: sync debounced value to store
   useEffect(() => {
-    setInputValue(searchQuery);
+    if (!controlled) {
+      setSearchQuery(debouncedValue);
+    }
+  }, [controlled, debouncedValue, setSearchQuery]);
+
+  // Uncontrolled mode: sync store → local (handles clear from external sources)
+  useEffect(() => {
+    if (!controlled) {
+      setInputValue(searchQuery);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   const handleClear = () => {
     setInputValue("");
-    setSearchQuery("");
+    if (controlled) {
+      onLocalClear?.();
+    } else {
+      setSearchQuery("");
+    }
   };
 
-  const displayCount = resultCount ?? searchResults.length;
+  const handleChange = (value: string) => {
+    setInputValue(value);
+    if (controlled) {
+      onLocalChange?.(value);
+    }
+  };
+
+  const displayCount = controlled
+    ? (resultCount ?? 0)
+    : (resultCount ?? searchResults.length);
+
+  const activeQuery = controlled ? (localValue ?? "") : searchQuery;
 
   return (
     <div className="px-3 pt-3 pb-2 shrink-0">
@@ -63,7 +95,10 @@ export function SearchBar({
         <input
           type="text"
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") handleClear();
+          }}
           placeholder={placeholder}
           className="flex-1 text-[12px] font-body text-ink placeholder:text-ink-ghost/60 bg-transparent outline-none"
         />
@@ -87,7 +122,7 @@ export function SearchBar({
           </button>
         )}
       </div>
-      {searchQuery && (
+      {activeQuery && (
         <div className="mt-1.5 px-1 text-[10px] text-ink-ghost font-mono">
           {displayCount > 0
             ? `${displayCount} 条结果`

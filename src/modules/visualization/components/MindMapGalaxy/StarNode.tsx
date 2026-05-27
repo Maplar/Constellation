@@ -8,6 +8,7 @@
  * - 中心显示分类名称
  * - d3-drag 可拖拽
  * - 点击时触发 onFocus 回调
+ * - hover 通过回调显示自定义 tooltip
  */
 
 import { useRef, useEffect, useCallback } from "react";
@@ -19,6 +20,9 @@ interface StarNodeProps {
   cx: number;
   cy: number;
   onFocus?: (categoryName: string) => void;
+  onHoverStart?: (e: React.MouseEvent, categoryName: string) => void;
+  onHoverMove?: (e: React.MouseEvent) => void;
+  onHoverEnd?: () => void;
 }
 
 const STAR_RADIUS = 30;
@@ -29,6 +33,9 @@ export function StarNode({
   cx,
   cy,
   onFocus,
+  onHoverStart,
+  onHoverMove,
+  onHoverEnd,
 }: StarNodeProps) {
   const gRef = useRef<SVGGElement>(null);
 
@@ -41,6 +48,24 @@ export function StarNode({
   const handleClick = useCallback(() => {
     onFocus?.(categoryName);
   }, [onFocus, categoryName]);
+
+  const handleMouseEnter = useCallback(
+    (e: React.MouseEvent) => {
+      onHoverStart?.(e, categoryName);
+    },
+    [onHoverStart, categoryName],
+  );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      onHoverMove?.(e);
+    },
+    [onHoverMove],
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    onHoverEnd?.();
+  }, [onHoverEnd]);
 
   /* ── d3-drag 简单实现（不更新布局，只移动自身） ── */
   useEffect(() => {
@@ -72,6 +97,9 @@ export function StarNode({
       transform={`translate(${cx}, ${cy})`}
       cursor="pointer"
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
       <circle
         r={STAR_RADIUS}

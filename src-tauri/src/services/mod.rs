@@ -5,4 +5,5 @@
 // 修改说明：二次开发修改
 
 pub mod ai;
+pub mod mindmap;
 pub mod notes;

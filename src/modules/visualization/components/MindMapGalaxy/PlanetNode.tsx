@@ -5,7 +5,7 @@
  * 行星（笔记）节点 — React SVG 组件
  * - 半径按引用次数映射 6~18px
  * - 填充色同所属分类颜色，白色描边
- * - hover 原生 SVG <title> 显示笔记标题
+ * - hover 通过回调显示自定义 tooltip，保留原生 <title> 作为无障碍 fallback
  * - 点击触发 onClick 回调传出笔记 ID
  */
 
@@ -21,6 +21,9 @@ interface PlanetNodeProps {
   val: number;
   maxVal: number;
   onClick?: (noteId: string) => void;
+  onHoverStart?: (e: React.MouseEvent, title: string) => void;
+  onHoverMove?: (e: React.MouseEvent) => void;
+  onHoverEnd?: () => void;
 }
 
 /** val → radius，线性映射 6~18px */
@@ -35,6 +38,9 @@ export function PlanetNode({
   val,
   maxVal,
   onClick,
+  onHoverStart,
+  onHoverMove,
+  onHoverEnd,
 }: PlanetNodeProps) {
   radiusScale.domain([0, Math.max(maxVal, 1)]);
   const r = radiusScale(val);
@@ -43,11 +49,32 @@ export function PlanetNode({
     onClick?.(noteId);
   }, [onClick, noteId]);
 
+  const handleMouseEnter = useCallback(
+    (e: React.MouseEvent) => {
+      onHoverStart?.(e, title);
+    },
+    [onHoverStart, title],
+  );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      onHoverMove?.(e);
+    },
+    [onHoverMove],
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    onHoverEnd?.();
+  }, [onHoverEnd]);
+
   return (
     <g
       transform={`translate(${cx}, ${cy})`}
       cursor="pointer"
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
       <title>{title}</title>
       <circle

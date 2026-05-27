@@ -30,6 +30,7 @@ const CATEGORY_COLORS_DARK = [
 ];
 
 const colorCache = new Map<string, string>();
+let customCategoryColors: Record<string, string> = {};
 
 function hashString(str: string): number {
   let hash = 0;
@@ -43,6 +44,9 @@ function hashString(str: string): number {
 
 export function getCategoryColor(category: string): string {
   if (!category) return CATEGORY_COLORS[0];
+
+  const custom = customCategoryColors[category];
+  if (custom) return custom;
 
   const cached = colorCache.get(category);
   if (cached) return cached;
@@ -86,4 +90,97 @@ export function getMixedColor(color1: string, color2: string): string {
 
 export function clearColorCache(): void {
   colorCache.clear();
+}
+
+export function setCategoryColors(map: Record<string, string>): void {
+  customCategoryColors = map;
+  clearColorCache();
+}
+
+export function getCustomCategoryColors(): Record<string, string> {
+  return customCategoryColors;
+}
+
+// ──────────────────────────────────────────────────────────────
+// 颜色对比度工具函数（WCAG AA 标准）
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * 解析十六进制颜色为 RGB
+ */
+function hexToRgb(hex: string): [number, number, number] {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return [0, 0, 0];
+  return [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)];
+}
+
+/**
+ * 计算相对亮度（WCAG 2.0）
+ */
+export function getRelativeLuminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex);
+  const [rv, gv, bv] = [r, g, b].map((c) => {
+    c = c / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rv + 0.7152 * gv + 0.0722 * bv;
+}
+
+/**
+ * 计算两个颜色之间的对比度
+ */
+export function getContrastRatio(color1: string, color2: string): number {
+  const lum1 = getRelativeLuminance(color1);
+  const lum2 = getRelativeLuminance(color2);
+  const lighter = Math.max(lum1, lum2);
+  const darker = Math.min(lum1, lum2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * 调整颜色亮度
+ */
+export function adjustBrightness(hex: string, factor: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const adjust = (c: number) => Math.min(255, Math.round(c * factor));
+
+  const rr = adjust(r).toString(16).padStart(2, "0");
+  const gg = adjust(g).toString(16).padStart(2, "0");
+  const bb = adjust(b).toString(16).padStart(2, "0");
+
+  return `#${rr}${gg}${bb}`;
+}
+
+/**
+ * 获取适配当前主题的节点颜色（确保 3:1 对比度）
+ * @param baseColor 基础颜色
+ * @param bgColor 背景颜色（可选，默认根据主题自动检测）
+ */
+export function getAccessibleNodeColor(baseColor: string, bgColor?: string): string {
+  if (typeof document === "undefined") return baseColor;
+
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const bg = bgColor || (isDark ? "#1a1a2e" : "#f5f5f5");
+  const contrast = getContrastRatio(baseColor, bg);
+
+  if (contrast >= 3.0) return baseColor;
+
+  return isDark ? adjustBrightness(baseColor, 1.4) : adjustBrightness(baseColor, 0.7);
+}
+
+/**
+ * 获取节点轮廓颜色（当对比度不足时添加轮廓）
+ * @param baseColor 基础颜色
+ * @param bgColor 背景颜色（可选）
+ */
+export function getAccessibleNodeStroke(baseColor: string, bgColor?: string): string {
+  if (typeof document === "undefined") return "none";
+
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const bg = bgColor || (isDark ? "#1a1a2e" : "#f5f5f5");
+  const contrast = getContrastRatio(baseColor, bg);
+
+  if (contrast >= 3.0) return "none";
+
+  return isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.3)";
 }

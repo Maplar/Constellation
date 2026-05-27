@@ -6,7 +6,7 @@
  * 修改说明：二次开发修改
  */
 
-export type NoteContextMenuAction = "export" | "move" | "delete";
+export type NoteContextMenuAction = "reference" | "export" | "move" | "delete";
 
 export interface NoteContextMenuItem {
   action: NoteContextMenuAction;
@@ -15,6 +15,7 @@ export interface NoteContextMenuItem {
 }
 
 export const noteContextMenuItems: NoteContextMenuItem[] = [
+  { action: "reference", label: "引用笔记" },
   { action: "export", label: "导出 Markdown" },
   { action: "move", label: "移动到分类…" },
   { action: "delete", label: "删除笔记", tone: "danger" },

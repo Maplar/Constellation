@@ -32,4 +32,5 @@ export interface AppConfig {
   fontSize: number;
   surfaceFontSize: number;
   aiConfig?: AIConfig;
+  categoryColors?: Record<string, string>;
 }
