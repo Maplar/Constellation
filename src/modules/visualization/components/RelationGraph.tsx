@@ -9,6 +9,7 @@ import { useNoteStore } from "../../notes/stores/useNoteStore";
 import { ForceGraph2D } from "../../notes/components/ForceGraph2D";
 import { CanvasContainer } from "./shared/CanvasContainer";
 import { GraphToolbar } from "./RelationGraph/GraphToolbar";
+import { ErrorBoundary } from "../../../components/ErrorBoundary";
 
 export function RelationGraph() {
   const {
@@ -71,15 +72,17 @@ export function RelationGraph() {
   return (
     <CanvasContainer toolbar={<GraphToolbar onReset={handleReset} />} infoText={infoText}>
       <div className="w-full h-full relative">
-        <ForceGraph2D
-          key={`2d-${graphKey.current}`}
-          onNodeClick={handleNodeClick}
-          searchQuery={searchQuery}
-          selectedNodeId={selectedNodeId}
-          hoveredNodeId={null}
-          onNodeHover={handleNodeHover}
-          radiusScale={graphParams.nodeRadiusScale}
-        />
+        <ErrorBoundary fallback={<div className="flex items-center justify-center h-full text-[13px]" style={{ color: "var(--text-muted)" }}>图谱渲染出错，请刷新重试</div>}>
+          <ForceGraph2D
+            key={`2d-${graphKey.current}`}
+            onNodeClick={handleNodeClick}
+            searchQuery={searchQuery}
+            selectedNodeId={selectedNodeId}
+            hoveredNodeId={null}
+            onNodeHover={handleNodeHover}
+            radiusScale={graphParams.nodeRadiusScale}
+          />
+        </ErrorBoundary>
       </div>
     </CanvasContainer>
   );

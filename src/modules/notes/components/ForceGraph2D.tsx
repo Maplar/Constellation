@@ -111,6 +111,7 @@ export function ForceGraph2D({
     const svgEl = svgRef.current;
     const container = containerRef.current;
     if (!svgEl || !container) return;
+    if (!linkGraph || !linkGraph.nodes || linkGraph.nodes.length === 0) return;
 
     const bounds = container.getBoundingClientRect();
     const width = bounds.width;
@@ -186,7 +187,9 @@ export function ForceGraph2D({
 
     svg.call(zoomBehavior);
 
-    const maxVal = Math.max(...linkGraph.nodes.map((n) => n.val), 1);
+    const maxVal = linkGraph.nodes.length > 0
+      ? Math.max(...linkGraph.nodes.map((n) => n.val), 1)
+      : 1;
 
     // 将全局 maxVal 归一化到 [0, 1] 区间供线性比例尺使用
     valToRadius.domain([0, maxVal]);
@@ -500,6 +503,14 @@ export function ForceGraph2D({
         .restart();
     }
   }, [radiusScale]);
+
+  if (!linkGraph || !linkGraph.nodes || linkGraph.nodes.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full text-[13px]" style={{ color: "var(--text-muted)" }}>
+        暂无图谱数据，请创建笔记并添加引用后再试。
+      </div>
+    );
+  }
 
   return (
     <div

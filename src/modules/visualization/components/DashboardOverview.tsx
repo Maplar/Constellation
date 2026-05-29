@@ -9,6 +9,7 @@ import { useGraphStore, type GraphMode } from "../stores/useGraphStore";
 import { ForceGraph2D } from "../../notes/components/ForceGraph2D";
 import { MindMapGalaxy } from "./MindMapGalaxy";
 import { getCategoryColor } from "../utils/colorMap";
+import { ErrorBoundary } from "../../../components/ErrorBoundary";
 
 /* ── Draggable Grid ── */
 function DraggableGrid({ children }: { children: React.ReactNode }) {
@@ -288,7 +289,9 @@ export function DashboardOverview() {
             infoText={`${linkGraph.nodes.length} 节点, ${linkGraph.edges.length} 边`}
             cardId="relation"
           >
-            <ForceGraph2D simplified radiusScale={graphParams.nodeRadiusScale} />
+            <ErrorBoundary fallback={<div className="flex items-center justify-center h-full text-[13px]" style={{ color: "var(--text-muted)" }}>图谱渲染出错</div>}>
+              <ForceGraph2D simplified radiusScale={graphParams.nodeRadiusScale} />
+            </ErrorBoundary>
           </GraphCard>
 
           <GraphCard

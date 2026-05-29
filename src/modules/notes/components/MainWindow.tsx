@@ -1057,6 +1057,18 @@ export function MainWindow({
     }
   };
 
+  const handleWikiLinkClick = useCallback(
+    (title: string) => {
+      const match = notes.find(
+        (n) => n.title.trim() === title.trim() || n.title === title,
+      );
+      if (match) {
+        void handleSelectNote(match.id);
+      }
+    },
+    [notes, handleSelectNote],
+  );
+
   const handleOpenNotepad = async () => {
     setErrorMessage(null);
     try {
@@ -1300,6 +1312,27 @@ export function MainWindow({
                 <span>新建笔记</span>
               </button>
               <button
+                onClick={() => setShowCategoryInput(true)}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-body text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer group"
+                title="新建文件夹"
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="shrink-0"
+                >
+                  <path d="M12 10v6M9 13h6" />
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>新建文件夹</span>
+              </button>
+              <button
                 onClick={() => void handleImportNote()}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-body text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer group"
               >
@@ -1345,15 +1378,6 @@ export function MainWindow({
                   </button>
                 )}
               </div>
-              <button
-                onClick={() => setShowCategoryInput(true)}
-                className="text-[10px] text-ink-ghost hover:text-bamboo transition-colors cursor-pointer"
-                title="新建分类"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </button>
             </div>
 
             {showCategoryInput && (
@@ -2013,7 +2037,7 @@ export function MainWindow({
                         }`}
                       >
                         {previewSubMode === "markdown" && (
-                          <MarkdownPreview content={content} fontSize={settingsConfig?.fontSize ?? 14} />
+                          <MarkdownPreview content={content} fontSize={settingsConfig?.fontSize ?? 14} onWikiLinkClick={handleWikiLinkClick} />
                         )}
                         {previewSubMode === "relation" && selectedId && (
                           <RelationPreview noteId={selectedId} />

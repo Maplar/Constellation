@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { ForceGraph2D } from "../../../notes/components/ForceGraph2D";
 import { useNoteStore } from "../../../notes/stores/useNoteStore";
 import { useGraphStore } from "../../stores/useGraphStore";
+import { ErrorBoundary } from "../../../../components/ErrorBoundary";
 
 export function RelationGraphCardContent() {
   const { linkGraph } = useNoteStore();
@@ -22,7 +23,9 @@ export function RelationGraphCardContent() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 min-h-0">
-        <ForceGraph2D simplified searchQuery={searchQuery} radiusScale={graphParams.nodeRadiusScale} />
+        <ErrorBoundary fallback={<div className="flex items-center justify-center h-full text-[13px]" style={{ color: "var(--text-muted)" }}>图谱渲染出错，请刷新重试</div>}>
+          <ForceGraph2D simplified searchQuery={searchQuery} radiusScale={graphParams.nodeRadiusScale} />
+        </ErrorBoundary>
       </div>
 
       <div
