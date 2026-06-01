@@ -859,6 +859,13 @@ fn sync_autostart_to_config(app: &AppHandle) {
     };
 
     if let Err(error) = apply_autostart(app, config.autostart) {
+        // 忽略 Windows 开发模式下常见的 "系统找不到指定的文件" 错误
+        if let Some(io_err) = error.downcast_ref::<std::io::Error>() {
+            if io_err.raw_os_error() == Some(2) {
+                eprintln!("autostart config sync skipped (development mode): {error}");
+                return;
+            }
+        }
         eprintln!("failed to sync autostart config: {error}");
     }
 }
