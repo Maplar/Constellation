@@ -73,17 +73,17 @@ interface ResizeHandleDef {
 }
 
 const edgeResizeHandles: ResizeHandleDef[] = [
-  { direction: "North", className: "top-0 left-0 right-0 h-2 cursor-n-resize" },
-  { direction: "South", className: "bottom-0 left-0 right-0 h-2 cursor-s-resize" },
-  { direction: "East", className: "top-0 right-0 bottom-0 w-2 cursor-e-resize" },
-  { direction: "West", className: "top-0 left-0 bottom-0 w-2 cursor-w-resize" },
+  { direction: "North", className: "top-0 left-2.5 right-2.5 h-[5px] cursor-n-resize" },
+  { direction: "South", className: "bottom-0 left-2.5 right-2.5 h-[5px] cursor-s-resize" },
+  { direction: "East", className: "top-2.5 right-0 bottom-2.5 w-[5px] cursor-e-resize" },
+  { direction: "West", className: "top-2.5 left-0 bottom-2.5 w-[5px] cursor-w-resize" },
 ];
 
 const cornerResizeHandles: ResizeHandleDef[] = [
-  { direction: "NorthWest", className: "top-0 left-0 w-4 h-4 cursor-nwse-resize" },
-  { direction: "NorthEast", className: "top-0 right-0 w-4 h-4 cursor-nesw-resize" },
-  { direction: "SouthWest", className: "bottom-0 left-0 w-4 h-4 cursor-nesw-resize" },
-  { direction: "SouthEast", className: "bottom-0 right-0 w-4 h-4 cursor-nwse-resize" },
+  { direction: "NorthWest", className: "top-0 left-0 w-2.5 h-2.5 cursor-nwse-resize" },
+  { direction: "NorthEast", className: "top-0 right-0 w-2.5 h-2.5 cursor-nesw-resize" },
+  { direction: "SouthWest", className: "bottom-0 left-0 w-2.5 h-2.5 cursor-nesw-resize" },
+  { direction: "SouthEast", className: "bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize" },
 ];
 
 function SurfaceResizeHandles() {
@@ -186,7 +186,7 @@ export function NotePad({
 
   const handleDrag = useCallback((event: MouseEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
-    if (target.closest("button,input,textarea")) return;
+    if (target.closest("button,input,textarea,[data-no-window-drag]")) return;
     void startCurrentWindowDrag().catch(() => undefined);
   }, []);
 
@@ -423,7 +423,7 @@ export function NotePad({
           color={tileColor}
           fontSize={surfaceFontSize}
           width="100%"
-          className="h-full cursor-default"
+          className="h-full cursor-grab active:cursor-grabbing"
           data-surface-mode={surfaceMode}
           data-context-menu="tile"
           data-note-id={tileNoteId}
@@ -451,7 +451,7 @@ export function NotePad({
         >
           {/* Title bar */}
           <div
-            className="flex items-center justify-between px-4 h-10 shrink-0 cursor-default"
+            className="flex items-center justify-between px-4 h-10 shrink-0 cursor-grab active:cursor-grabbing"
             style={{ borderBottom: "1px solid #dce1e8" }}
             onMouseDown={handleDrag}
           >
@@ -471,6 +471,7 @@ export function NotePad({
               }}
               placeholder="标题（可选）"
               className="flex-1 text-sm font-medium bg-transparent border-none focus:ring-0 outline-none placeholder:text-[#a0a8b4]"
+              data-no-window-drag
               style={{ color: "#1e1e1e" }}
             />
 
@@ -505,7 +506,7 @@ export function NotePad({
           </div>
 
           {/* Textarea */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden" data-no-window-drag>
             <textarea
               ref={contentRef}
               value={content}

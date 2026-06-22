@@ -19,12 +19,12 @@ export function normalizeTileColor(value: string | null | undefined): string {
   const trimmed = value?.trim() ?? "";
   const fullMatch = trimmed.match(FULL_HEX_COLOR);
   if (fullMatch) {
-    return `#${fullMatch[1].toLowerCase()}`;
+    return `#${fullMatch[1]!.toLowerCase()}`;
   }
 
   const shortMatch = trimmed.match(SHORT_HEX_COLOR);
   if (shortMatch) {
-    return `#${shortMatch[1]
+    return `#${shortMatch[1]!
       .split("")
       .map((character) => character + character)
       .join("")

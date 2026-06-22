@@ -41,6 +41,7 @@ export function metadataFromNote(note: Note): NoteMetadata {
     updatedAt: note.updatedAt,
     wordCount: note.wordCount,
     preview: buildPreview(note.content),
+    noteType: note.noteType ?? "note",
   };
 }
 

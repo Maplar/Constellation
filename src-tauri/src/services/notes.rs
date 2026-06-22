@@ -5,7 +5,7 @@
 // 修改说明：二次开发修改
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use std::{
     env, fmt, fs, io,
     path::{Path, PathBuf},
@@ -60,6 +60,8 @@ pub struct NoteMetadata {
     pub updated_at: DateTime<Utc>,
     pub word_count: usize,
     pub preview: String,
+    #[serde(default = "default_note_type")]
+    pub note_type: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -74,9 +76,11 @@ pub struct Note {
     pub updated_at: DateTime<Utc>,
     pub word_count: usize,
     pub content: String,
+    #[serde(default = "default_note_type")]
+    pub note_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppError {
     pub code: String,
@@ -93,6 +97,24 @@ impl AppError {
 
     fn not_found(message: impl Into<String>) -> Self {
         Self::new("notFound", message)
+    }
+
+    fn retryable(&self) -> bool {
+        matches!(self.code.as_str(), "io" | "tauri" | "aiHttp" | "network")
+    }
+}
+
+impl Serialize for AppError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("CoreError", 4)?;
+        state.serialize_field("code", &self.code)?;
+        state.serialize_field("message", &self.message)?;
+        state.serialize_field("details", &Option::<String>::None)?;
+        state.serialize_field("retryable", &self.retryable())?;
+        state.end()
     }
 }
 
@@ -192,7 +214,10 @@ impl NoteStore {
     pub fn list_notes(&self) -> Result<Vec<NoteMetadata>, AppError> {
         self.ensure_storage()?;
         let mut metadata = self.load_metadata()?.notes;
-        metadata.retain(|note| self.note_path_in_category(&note.file_name, &note.category).exists());
+        metadata.retain(|note| {
+            self.note_path_in_category(&note.file_name, &note.category)
+                .exists()
+        });
         metadata.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
         Ok(metadata)
     }
@@ -200,7 +225,9 @@ impl NoteStore {
     pub fn read_note(&self, id: &str) -> Result<Note, AppError> {
         self.ensure_storage()?;
         let metadata = self.find_metadata(id)?;
-        let content = fs::read_to_string(self.note_path_in_category(&metadata.file_name, &metadata.category))?;
+        let content = fs::read_to_string(
+            self.note_path_in_category(&metadata.file_name, &metadata.category),
+        )?;
         Ok(Note {
             id: metadata.id,
             title: metadata.title,
@@ -210,6 +237,7 @@ impl NoteStore {
             updated_at: metadata.updated_at,
             word_count: metadata.word_count,
             content,
+            note_type: metadata.note_type,
         })
     }
 
@@ -233,6 +261,7 @@ impl NoteStore {
             updated_at: now,
             word_count,
             preview: preview(&request.content),
+            note_type: "note".to_string(),
         };
 
         fs::write(&note_path, &request.content)?;
@@ -249,6 +278,7 @@ impl NoteStore {
             updated_at: now,
             word_count,
             content: request.content,
+            note_type: "note".to_string(),
         })
     }
 
@@ -297,6 +327,7 @@ impl NoteStore {
             updated_at: note.updated_at,
             word_count: note.word_count,
             content: request.content,
+            note_type: note.note_type.clone(),
         };
 
         self.save_metadata(&metadata_file)?;
@@ -326,7 +357,11 @@ impl NoteStore {
 
         let content = fs::read_to_string(path)?;
         let title = imported_markdown_title(path, &content);
-        self.create_note(SaveNoteRequest { title, content, category: category.to_string() })
+        self.create_note(SaveNoteRequest {
+            title,
+            content,
+            category: category.to_string(),
+        })
     }
 
     pub fn export_markdown_file(&self, id: &str, path: &Path) -> Result<(), AppError> {
@@ -355,6 +390,10 @@ impl NoteStore {
                 continue;
             }
             let name = entry.file_name().to_string_lossy().to_string();
+            // 跳过 .mindmaps 隐藏目录
+            if name == ".mindmaps" {
+                continue;
+            }
             let full = if prefix.is_empty() {
                 name.clone()
             } else {
@@ -389,7 +428,10 @@ impl NoteStore {
             return Err(AppError::not_found(format!("分类「{old_name}」不存在")));
         }
         if new_path.exists() {
-            return Err(AppError::new("conflict", format!("分类「{new_name}」已存在")));
+            return Err(AppError::new(
+                "conflict",
+                format!("分类「{new_name}」已存在"),
+            ));
         }
         fs::rename(&old_path, &new_path)?;
 
@@ -431,7 +473,11 @@ impl NoteStore {
         Ok(())
     }
 
-    pub fn move_note_to_category(&self, id: &str, new_category: &str) -> Result<NoteMetadata, AppError> {
+    pub fn move_note_to_category(
+        &self,
+        id: &str,
+        new_category: &str,
+    ) -> Result<NoteMetadata, AppError> {
         self.ensure_storage()?;
         let mut metadata_file = self.load_metadata()?;
         let note = metadata_file
@@ -565,23 +611,46 @@ impl NoteStore {
             let entry = entry?;
             let path = entry.path();
             if path.is_dir() {
-                let category = entry.file_name().to_string_lossy().to_string();
-                self.scan_dir_for_notes(&path, &category, &mut notes)?;
+                let dir_name = entry.file_name().to_string_lossy().to_string();
+                // 跳过 .mindmaps 隐藏目录
+                if dir_name == ".mindmaps" {
+                    continue;
+                }
+                self.scan_dir_for_notes(&path, &dir_name, &mut notes)?;
             }
         }
 
         Ok(MetadataFile { notes })
     }
 
-    fn scan_dir_for_notes(&self, dir: &Path, category: &str, notes: &mut Vec<NoteMetadata>) -> Result<(), AppError> {
+    fn scan_dir_for_notes(
+        &self,
+        dir: &Path,
+        category: &str,
+        notes: &mut Vec<NoteMetadata>,
+    ) -> Result<(), AppError> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().and_then(|extension| extension.to_str()) != Some("md") {
+
+            // 跳过 .mindmaps 隐藏目录
+            if path.is_dir() {
+                let dir_name = entry.file_name().to_string_lossy().to_string();
+                if dir_name == ".mindmaps" {
+                    continue;
+                }
+                continue;
+            }
+
+            let ext = path.extension().and_then(|e| e.to_str());
+            let is_md = ext == Some("md");
+            if !is_md {
                 continue;
             }
 
             let file_name = entry.file_name().to_string_lossy().to_string();
+            let note_type = "note";
+
             let Some(id) = id_from_file_name(&file_name) else {
                 continue;
             };
@@ -602,6 +671,7 @@ impl NoteStore {
                 updated_at: modified,
                 word_count: count_words(&content),
                 preview: preview(&content),
+                note_type: note_type.to_string(),
             });
         }
         Ok(())
@@ -741,8 +811,14 @@ fn default_surface_font_size() -> u32 {
     14
 }
 
+fn default_note_type() -> String {
+    "note".to_string()
+}
+
 pub fn start_notes_watcher(app: AppHandle, notes_dir: PathBuf) {
     use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
 
     let (tx, rx) = mpsc::channel::<Result<notify::Event, notify::Error>>();
 
@@ -764,10 +840,11 @@ pub fn start_notes_watcher(app: AppHandle, notes_dir: PathBuf) {
         return;
     }
 
-    std::thread::spawn(move || {
-        let mut last_emit = std::time::Instant::now();
-        let debounce = Duration::from_millis(300);
+    let debounce = Duration::from_millis(300);
+    let dirty = Arc::new(AtomicBool::new(false));
+    let timer_running = Arc::new(AtomicBool::new(false));
 
+    std::thread::spawn(move || {
         for event in rx {
             match event {
                 Ok(event) => {
@@ -788,16 +865,24 @@ pub fn start_notes_watcher(app: AppHandle, notes_dir: PathBuf) {
                         continue;
                     }
 
-                    let now = std::time::Instant::now();
-                    if now.duration_since(last_emit) < debounce {
-                        continue;
-                    }
-                    last_emit = now;
+                    dirty.store(true, Ordering::SeqCst);
 
-                    let app_clone = app.clone();
-                    let _ = app.run_on_main_thread(move || {
-                        let _ = app_clone.emit("notes-changed", ());
-                    });
+                    if !timer_running.load(Ordering::SeqCst) {
+                        timer_running.store(true, Ordering::SeqCst);
+                        let app_clone = app.clone();
+                        let dirty_clone = dirty.clone();
+                        let timer_flag = timer_running.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(debounce);
+                            if dirty_clone.swap(false, Ordering::SeqCst) {
+                                let emit_app = app_clone.clone();
+                                let _ = app_clone.run_on_main_thread(move || {
+                                    let _ = emit_app.emit("notes-changed", ());
+                                });
+                            }
+                            timer_flag.store(false, Ordering::SeqCst);
+                        });
+                    }
                 }
                 Err(error) => {
                     eprintln!("file watcher error: {error}");
@@ -988,7 +1073,13 @@ mod tests {
 
         assert_eq!(imported.title, "导入标题");
         assert_eq!(imported.content, source_content);
-        assert_eq!(store.read_note(&imported.id).expect("read imported").content, source_content);
+        assert_eq!(
+            store
+                .read_note(&imported.id)
+                .expect("read imported")
+                .content,
+            source_content
+        );
     }
 
     #[test]
@@ -1029,5 +1120,16 @@ mod tests {
             fs::read_to_string(export_path).expect("read exported markdown"),
             content
         );
+    }
+
+    #[test]
+    fn serializes_errors_as_the_core_error_contract() {
+        let error = AppError::new("revisionConflict", "文档已被外部修改");
+        let value = serde_json::to_value(error).expect("serialize error");
+
+        assert_eq!(value["code"], "revisionConflict");
+        assert_eq!(value["message"], "文档已被外部修改");
+        assert_eq!(value["details"], serde_json::Value::Null);
+        assert_eq!(value["retryable"], false);
     }
 }

@@ -1,108 +1,62 @@
 /**
- * @copyright Copyright (c) 2026 Maplar
- * 基于 floral-notepaper 二次开发新增：关系卡片组件
+ * @copyright 原始代码版权归 Achilng 所有 (Copyright (c) 2026 Achilng)
+ * 基于 MIT 许可证授权
+ *
+ * 修改部分版权：Copyright (c) 2026 Maplar
+ * 修改说明：收敛为 1.0 当前文档引用与反向链接面板
  */
 
-import { useMemo } from "react";
-import { useNoteStore } from "../stores/useNoteStore";
-import type { GraphEdge } from "../../shared/types/notes";
+import { useEffect, useState } from "react";
+import {
+  getBacklinksForDocument,
+  getReferencesForDocument,
+  listDocuments,
+  type ReferenceEdge,
+} from "../../../core-client";
+import { getConfig } from "../../settings/api";
 
 interface RelationPreviewProps {
   noteId: string;
 }
 
 export function RelationPreview({ noteId }: RelationPreviewProps) {
-  const outgoing = useNoteStore((s) => s.outgoingMap.get(noteId) ?? []);
-  const incoming = useNoteStore((s) => s.incomingMap.get(noteId) ?? []);
-  const notesMetadata = useNoteStore((s) => s.notesMetadata);
-  const selectNote = useNoteStore((s) => s.selectNote);
+  const [incoming, setIncoming] = useState<ReferenceEdge[]>([]);
+  const [outgoing, setOutgoing] = useState<ReferenceEdge[]>([]);
+  const [titles, setTitles] = useState<Map<string, string>>(new Map());
 
-  const getNoteTitle = (id: string) =>
-    notesMetadata.find((n) => n.id === id)?.title ?? "未知笔记";
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([getConfig(), listDocuments()])
+      .then(async ([config, documents]) => {
+        const titleById = new Map(documents.map((document) => [document.constellationId, document.title]));
+        const [nextOutgoing, nextIncoming] = await Promise.all([
+          getReferencesForDocument(config.notesDir, noteId),
+          getBacklinksForDocument(config.notesDir, noteId),
+        ]);
+        if (!cancelled) {
+          setTitles(titleById);
+          setOutgoing(nextOutgoing);
+          setIncoming(nextIncoming);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIncoming([]);
+          setOutgoing([]);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [noteId]);
 
   return (
-    <div className="flex flex-col gap-6 p-4 overflow-y-auto h-full">
-      <section>
-        <h3 className="text-xs font-semibold text-ink-ghost uppercase tracking-wider mb-3">
-          引用此笔记 ({incoming.length})
-        </h3>
-        {incoming.length === 0 ? (
-          <p className="text-xs text-ink-ghost/60 italic">暂无引用</p>
-        ) : (
-          <div className="space-y-2">
-            {incoming.map((edge) => (
-              <RelationCard
-                key={edge.source}
-                title={getNoteTitle(edge.source)}
-                edge={edge}
-                onClick={() => selectNote(edge.source)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
+    <div className="flex flex-col gap-5 p-4 overflow-y-auto h-full">
+      <RelationSection title={`引用此笔记 (${incoming.length})`} edges={incoming} titles={titles} direction="source" />
       <div className="h-px bg-gradient-to-r from-transparent via-paper-deep to-transparent" />
-
-      <section>
-        <h3 className="text-xs font-semibold text-ink-ghost uppercase tracking-wider mb-3">
-          此笔记引用 ({outgoing.length})
-        </h3>
-        {outgoing.length === 0 ? (
-          <p className="text-xs text-ink-ghost/60 italic">暂无引用</p>
-        ) : (
-          <div className="space-y-2">
-            {outgoing.map((edge) => (
-              <RelationCard
-                key={edge.target}
-                title={getNoteTitle(edge.target)}
-                edge={edge}
-                onClick={() => selectNote(edge.target)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      <RelationSection title={`此笔记引用 (${outgoing.length})`} edges={outgoing} titles={titles} direction="target" />
     </div>
   );
 }
 
-interface RelationCardProps {
-  title: string;
-  edge: GraphEdge;
-  onClick: () => void;
-}
-
-function RelationCard({ title, edge, onClick }: RelationCardProps) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left px-3 py-2 rounded-lg bg-paper-warm/50 hover:bg-paper-warm 
-                 border border-paper-deep/10 hover:border-bamboo/30
-                 transition-all duration-200 group cursor-pointer"
-    >
-      <div className="flex items-center gap-2">
-        <svg
-          className="w-3.5 h-3.5 text-ink-ghost/40 group-hover:text-bamboo transition-colors shrink-0"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-        </svg>
-        <span className="text-[13px] text-ink-soft group-hover:text-ink truncate transition-colors">
-          {title}
-        </span>
-      </div>
-      {edge.label && (
-        <span className="text-[10px] text-ink-ghost/40 ml-5 truncate block">
-          别名: {edge.label}
-        </span>
-      )}
-    </button>
-  );
+function RelationSection({ title, edges, titles, direction }: { title: string; edges: ReferenceEdge[]; titles: Map<string, string>; direction: "source" | "target" }) {
+  return <section><h3 className="text-xs font-semibold text-ink-ghost uppercase tracking-wider mb-3">{title}</h3>{edges.length === 0 ? <p className="text-xs text-ink-ghost/60 italic">暂无引用</p> : <div className="space-y-2">{edges.map((edge) => <div key={`${edge.source}-${edge.target}-${edge.relationType}`} className="rounded-lg border border-paper-deep/10 bg-paper-warm/50 px-3 py-2"><strong className="text-[13px] text-ink-soft">{titles.get(edge[direction]) ?? edge[direction]}</strong>{edge.label && <span className="block text-[10px] text-ink-ghost/50 mt-1">{edge.label}</span>}</div>)}</div>}</section>;
 }

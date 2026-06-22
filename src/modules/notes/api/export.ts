@@ -7,42 +7,24 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
 import type { Note } from "../../shared/types/notes";
-
-const markdownFilters = [{ name: "Markdown", extensions: ["md"] }];
 
 interface ExportableNote {
   id: string;
   title: string;
 }
 
-export async function importMarkdownNote(category = ""): Promise<Note | null> {
-  const path = await open({
-    multiple: false,
-    directory: false,
-    filters: markdownFilters,
-  });
-
-  if (typeof path !== "string") {
-    return null;
-  }
-
+export async function importMarkdownNote(path: string, category = ""): Promise<Note> {
   return invoke("notes_import_markdown", { path, category });
 }
 
-export async function exportMarkdownNote(note: ExportableNote): Promise<boolean> {
-  const path = await save({
-    defaultPath: markdownFileName(note.title),
-    filters: markdownFilters,
-  });
-
-  if (typeof path !== "string") {
-    return false;
-  }
-
+export async function exportMarkdownNote(
+  note: ExportableNote,
+  targetDirectory: string,
+): Promise<void> {
+  const separator = targetDirectory.includes("\\") ? "\\" : "/";
+  const path = `${targetDirectory.replace(/[\\/]+$/, "")}${separator}${markdownFileName(note.title)}`;
   await invoke("notes_export_markdown", { id: note.id, path });
-  return true;
 }
 
 function markdownFileName(title: string): string {

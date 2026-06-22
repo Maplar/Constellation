@@ -14,8 +14,11 @@ export type TileColorMode = "system" | "custom";
 
 export interface AIConfig {
   apiKey: string;
-  baseURL: string;
+  hasApiKey?: boolean;
+  baseUrl: string;
   model: string;
+  allowedFolders: string[];
+  consentProvider: string;
 }
 
 export interface AppConfig {

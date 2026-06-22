@@ -9,6 +9,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { PhysicalPosition, PhysicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isTauriEnv } from "../shared/platform";
 import type { WindowBounds } from "./api";
 
 export type ResizeDirection =
@@ -50,6 +51,9 @@ export function toggleMaximizeCurrentWindow(): Promise<void> {
 }
 
 export function isCurrentWindowMaximized(): Promise<boolean> {
+  if (!isTauriEnv()) {
+    return Promise.resolve(false);
+  }
   return getCurrentWindow().isMaximized();
 }
 

@@ -17,10 +17,20 @@ import { applyTheme, watchSystemTheme } from "../theme";
 import { SlidingButtonGroup } from "../../shared/components/SlidingButtonGroup";
 import { loadAiSettings, saveAiSettings, testAiConnection } from "../ai";
 import type { AiSettings } from "../ai";
+import { AdvancedToolsPanel } from "./AdvancedToolsPanel";
 
 const tileColorModes: Array<{ value: TileColorMode; label: string }> = [
   { value: "system", label: "跟随主题" },
   { value: "custom", label: "自定义" },
+];
+
+const LOCAL_MODEL_PRESETS = [
+  { label: "Ollama (本地)", baseUrl: "http://localhost:11434/v1", models: ["llama3", "llama2", "mistral", "codellama", "phi3"] },
+  { label: "LM Studio", baseUrl: "http://localhost:1234/v1", models: ["local-model"] },
+  { label: "llama.cpp", baseUrl: "http://localhost:8080/v1", models: ["default"] },
+  { label: "OpenAI (云端)", baseUrl: "https://api.openai.com/v1", models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"] },
+  { label: "DeepSeek (云端)", baseUrl: "https://api.deepseek.com/v1", models: ["deepseek-chat", "deepseek-coder"] },
+  { label: "自定义", baseUrl: "", models: [] },
 ];
 
 interface SettingsPanelProps {
@@ -58,10 +68,18 @@ export function SettingsPanel({
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
   const [aiTestStatus, setAiTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [aiTestMessage, setAiTestMessage] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState<string>("OpenAI (云端)");
+  const [advancedToolsOpen, setAdvancedToolsOpen] = useState(false);
 
   useEffect(() => {
     void loadAiSettings().then((loaded) => {
       setAiSettings(loaded);
+      const preset = LOCAL_MODEL_PRESETS.find((p) => p.baseUrl === loaded.baseUrl);
+      if (preset) {
+        setSelectedPreset(preset.label);
+      } else if (loaded.baseUrl) {
+        setSelectedPreset("自定义");
+      }
     });
   }, []);
 
@@ -70,6 +88,14 @@ export function SettingsPanel({
     setAiSettings({ ...aiSettings, ...partial });
     setAiTestStatus("idle");
     setAiTestMessage("");
+  };
+
+  const handlePresetChange = (presetLabel: string) => {
+    setSelectedPreset(presetLabel);
+    const preset = LOCAL_MODEL_PRESETS.find((p) => p.label === presetLabel);
+    if (preset && preset.baseUrl) {
+      handleAiChange({ baseUrl: preset.baseUrl });
+    }
   };
 
   const handleSaveAiConfig = async () => {
@@ -101,6 +127,17 @@ export function SettingsPanel({
       setAiTestMessage(String(error));
     }
   };
+
+  if (advancedToolsOpen) {
+    return (
+      <aside className="w-[360px] h-full shrink-0 border-l border-paper-deep/30 bg-cloud/92 backdrop-blur-sm">
+        <AdvancedToolsPanel
+          notesDir={config.notesDir}
+          onClose={() => setAdvancedToolsOpen(false)}
+        />
+      </aside>
+    );
+  }
 
   return (
     <aside className="w-[360px] h-full shrink-0 border-l border-paper-deep/30 bg-cloud/92 backdrop-blur-sm flex flex-col">
@@ -303,18 +340,35 @@ export function SettingsPanel({
 
           <div className="space-y-1.5">
             <label className="block text-[11px] font-body text-ink-faint">
+              服务提供商
+            </label>
+            <select
+              value={selectedPreset}
+              onChange={(e) => handlePresetChange(e.target.value)}
+              className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink focus:border-bamboo/30 transition-colors cursor-pointer"
+            >
+              {LOCAL_MODEL_PRESETS.map((preset) => (
+                <option key={preset.label} value={preset.label}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-body text-ink-faint">
               API Key
             </label>
             <input
               type="password"
               value={aiSettings?.apiKey ?? ""}
               onChange={(e) => handleAiChange({ apiKey: e.target.value })}
-              placeholder="sk-..."
+              placeholder={aiSettings?.hasApiKey ? "已安全保存，留空表示保持不变" : "sk-... (本地模型可留空)"}
               autoComplete="off"
               className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
             />
             <p className="text-[10px] text-ink-ghost/50 leading-relaxed">
-              Key 存储于本地系统密钥链（加密），不会上传到任何服务器
+              本地模型（如 Ollama）可留空，云端服务需要填写
             </p>
           </div>
 
@@ -326,11 +380,11 @@ export function SettingsPanel({
               type="text"
               value={aiSettings?.baseUrl ?? ""}
               onChange={(e) => handleAiChange({ baseUrl: e.target.value })}
-              placeholder="https://api.openai.com/v1"
+              placeholder="http://localhost:11434/v1"
               className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
             />
             <p className="text-[10px] text-ink-ghost/60 leading-relaxed">
-              支持任何 OpenAI 兼容接口（如 API 代理、中转站、DeepSeek、Ollama 等）
+              Ollama 默认 http://localhost:11434/v1，LM Studio 默认 http://localhost:1234/v1
             </p>
           </div>
 
@@ -338,13 +392,59 @@ export function SettingsPanel({
             <label className="block text-[11px] font-body text-ink-faint">
               模型名称
             </label>
-            <input
-              type="text"
-              value={aiSettings?.model ?? ""}
-              onChange={(e) => handleAiChange({ model: e.target.value })}
-              placeholder="gpt-3.5-turbo"
-              className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
+            {(() => {
+              const preset = LOCAL_MODEL_PRESETS.find((p) => p.label === selectedPreset);
+              if (preset && preset.models.length > 0) {
+                return (
+                  <select
+                    value={aiSettings?.model ?? ""}
+                    onChange={(e) => handleAiChange({ model: e.target.value })}
+                    className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink focus:border-bamboo/30 transition-colors cursor-pointer"
+                  >
+                    <option value="">选择模型...</option>
+                    {preset.models.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </select>
+                );
+              }
+              return (
+                <input
+                  type="text"
+                  value={aiSettings?.model ?? ""}
+                  onChange={(e) => handleAiChange({ model: e.target.value })}
+                  placeholder="gpt-3.5-turbo"
+                  className="w-full px-2.5 h-8 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[12px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors"
+                />
+              );
+            })()}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-body text-ink-faint">
+              允许 AI 读取的文件夹
+            </label>
+            <textarea
+              rows={3}
+              value={(aiSettings?.allowedFolders ?? []).join("\n")}
+              onChange={(event) =>
+                handleAiChange({
+                  allowedFolders: event.target.value
+                    .split(/\r?\n/)
+                    .map((value) =>
+                      value.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, ""),
+                    )
+                    .filter(Boolean),
+                })
+              }
+              placeholder={"每行一个工作区相对路径\n留空表示整个工作区"}
+              className="w-full px-2.5 py-2 rounded-lg bg-paper-warm/80 border border-paper-deep/40 text-[11px] font-mono text-ink placeholder:text-ink-ghost/50 focus:border-bamboo/30 transition-colors resize-y"
             />
+            <p className="text-[10px] text-ink-ghost/60 leading-relaxed">
+              文件夹范围由 Rust Core 强制执行，修改服务商后需要重新确认正文外发。
+            </p>
           </div>
 
           <div className="flex gap-2 pt-1">
@@ -380,6 +480,16 @@ export function SettingsPanel({
               {aiTestMessage}
             </p>
           )}
+        </section>
+
+        <section className="pt-4 border-t border-paper-deep/20">
+          <button
+            type="button"
+            onClick={() => setAdvancedToolsOpen(true)}
+            className="w-full min-h-10 rounded-xl border border-bamboo/40 text-[12px] text-bamboo hover:bg-bamboo-mist/50 transition-colors"
+          >
+            数据与高级工具
+          </button>
         </section>
       </div>
     </aside>

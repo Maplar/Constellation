@@ -4,11 +4,16 @@
  */
 
 import { create } from "zustand";
-import Fuse from "fuse.js";
 import type { GraphEdge, LinkGraph, Note, NoteMetadata, WikiLink } from "../../shared/types/notes";
-import { listNotes, getNote } from "../api";
-import { parseAllLinks, buildLinkGraph } from "../linkParser";
-import type { SearchResult } from "../services/searchService";
+import { getReferenceGraph, listNotes } from "../api";
+import { querySearch } from "../../../core-client";
+import { getConfig } from "../../settings/api";
+import { getCategoryColor } from "../../visualization/utils/colorMap";
+
+interface MetadataSearchResult {
+  note: NoteMetadata;
+  score: number;
+}
 
 interface NoteStoreState {
   notesMetadata: NoteMetadata[];
@@ -21,18 +26,18 @@ interface NoteStoreState {
   isLoading: boolean;
   errorMessage: string | null;
   searchQuery: string;
-  searchResults: SearchResult[];
+  searchResults: MetadataSearchResult[];
 }
 
 interface NoteStoreActions {
   loadNotes: () => Promise<void>;
-  loadFullNotes: () => Promise<void>;
+  refreshKnowledgeIndex: () => Promise<void>;
   selectNote: (id: string | null) => void;
   rebuildGraph: () => void;
   getLinkedNotes: (noteId: string) => GraphEdge[];
   getBacklinks: (noteId: string) => GraphEdge[];
   setSearchQuery: (query: string) => void;
-  performSearch: () => void;
+  performSearch: () => Promise<void>;
 }
 
 type NoteStore = NoteStoreState & NoteStoreActions;
@@ -81,27 +86,28 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     }
   },
 
-  loadFullNotes: async () => {
-    const { notesMetadata } = get();
-    if (notesMetadata.length === 0) {
-      await get().loadNotes();
-    }
-    const metadata = get().notesMetadata;
+  refreshKnowledgeIndex: async () => {
     set({ isLoading: true, errorMessage: null });
     try {
-      const fullNotes: Note[] = [];
-      for (const meta of metadata) {
-        try {
-          const note = await getNote(meta.id);
-          fullNotes.push(note);
-        } catch {
-          // skip notes that fail to load
-        }
-      }
-      const links = parseAllLinks(fullNotes);
-      const graph = buildLinkGraph(fullNotes);
+      const [metadata, rawGraph] = await Promise.all([listNotes(), getReferenceGraph()]);
+      const graph: LinkGraph = {
+        nodes: rawGraph.nodes.map((node) => ({
+          ...node,
+          color: getCategoryColor(node.category ?? ""),
+        })),
+        edges: rawGraph.edges,
+      };
+      const titleById = new Map(metadata.map((note) => [note.id, note.title]));
+      const links: WikiLink[] = graph.edges
+        .filter((edge) => edge.edgeType === "wiki")
+        .map((edge) => ({
+          sourceNoteId: edge.source,
+          targetTitle: titleById.get(edge.target) ?? edge.target,
+          alias: edge.label,
+          rawText: edge.label ?? titleById.get(edge.target) ?? edge.target,
+        }));
       const { outgoingMap, incomingMap } = buildReferenceMaps(graph.edges);
-      set({ notes: fullNotes, wikiLinks: links, linkGraph: graph, outgoingMap, incomingMap, isLoading: false });
+      set({ notesMetadata: metadata, notes: [], wikiLinks: links, linkGraph: graph, outgoingMap, incomingMap, isLoading: false });
       get().performSearch();
     } catch (error) {
       set({ isLoading: false, errorMessage: String(error) });
@@ -113,12 +119,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   },
 
   rebuildGraph: () => {
-    const { notes } = get();
-    if (notes.length === 0) return;
-    const links = parseAllLinks(notes);
-    const graph = buildLinkGraph(notes);
-    const { outgoingMap, incomingMap } = buildReferenceMaps(graph.edges);
-    set({ wikiLinks: links, linkGraph: graph, outgoingMap, incomingMap });
+    void get().refreshKnowledgeIndex();
   },
 
   getLinkedNotes: (noteId) => {
@@ -136,26 +137,25 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     get().performSearch();
   },
 
-  performSearch: () => {
-    const { searchQuery: q, notes } = get();
+  performSearch: async () => {
+    const { searchQuery: q, notesMetadata } = get();
     if (!q?.trim()) {
       set({ searchResults: [] });
       return;
     }
-    if (notes.length === 0) {
+    if (notesMetadata.length === 0) {
       set({ searchResults: [] });
       return;
     }
     try {
-      const fuse = new Fuse(notes, {
-        keys: ["title", "content"],
-        threshold: 0.3,
-      });
+      const config = await getConfig();
+      const hits = await querySearch(config.notesDir, q.trim(), 50);
+      const metadataById = new Map(notesMetadata.map((note) => [note.id, note]));
       set({
-        searchResults: fuse.search(q).map((r) => ({
-          note: r.item,
-          score: r.score,
-        })),
+        searchResults: hits
+          .map((hit) => metadataById.get(hit.noteId))
+          .filter((note): note is NoteMetadata => Boolean(note))
+          .map((note, index) => ({ note, score: index })),
       });
     } catch (error) {
       console.error("搜索失败:", error);

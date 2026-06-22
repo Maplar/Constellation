@@ -22,33 +22,9 @@ const icons: IconItem[] = [
       </svg>
     ),
   },
-  {
-    key: "dashboard",
-    label: "仪表盘",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="6" cy="6" r="3" />
-        <circle cx="18" cy="6" r="3" />
-        <circle cx="6" cy="18" r="3" />
-        <circle cx="18" cy="18" r="3" />
-        <path d="M8.5 7.5L15.5 16.5M15.5 7.5L8.5 16.5" />
-      </svg>
-    ),
-  },
 ];
 
 const bottomIcons = [
-  {
-    key: "import" as const,
-    label: "导入",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-        <polyline points="17,8 12,3 7,8" />
-        <line x1="12" y1="3" x2="12" y2="15" />
-      </svg>
-    ),
-  },
   {
     key: "settings" as const,
     label: "设置",

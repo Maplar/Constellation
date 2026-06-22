@@ -253,10 +253,12 @@ pub async fn open_tile_window(
 }
 
 pub fn extract_file_arg(args: &[String]) -> Option<String> {
-    args.iter().find(|arg| {
-        let lower = arg.to_lowercase();
-        lower.ends_with(".md") || lower.ends_with(".markdown")
-    }).cloned()
+    args.iter()
+        .find(|arg| {
+            let lower = arg.to_lowercase();
+            lower.ends_with(".md") || lower.ends_with(".markdown")
+        })
+        .cloned()
 }
 
 pub fn setup_desktop(app: &mut App) -> Result<(), Box<dyn Error>> {
@@ -484,10 +486,7 @@ fn open_notepad_window_now(
     )
 }
 
-fn activate_pooled_notepad(
-    app: &AppHandle,
-    bounds: Option<WindowBounds>,
-) -> Option<String> {
+fn activate_pooled_notepad(app: &AppHandle, bounds: Option<WindowBounds>) -> Option<String> {
     let pool = app.try_state::<NotepadPool>()?;
     let label = pool.take()?;
     let Some(window) = app.get_webview_window(&label) else {
@@ -547,12 +546,10 @@ fn schedule_notepad_replenish(app: &AppHandle, delay_ms: u64) {
 }
 
 fn prewarm_notepad(app: &AppHandle) -> Result<(), AppError> {
-    let pool = app
-        .try_state::<NotepadPool>()
-        .ok_or_else(|| AppError {
-            code: "noPool".into(),
-            message: "notepad pool not initialized".into(),
-        })?;
+    let pool = app.try_state::<NotepadPool>().ok_or_else(|| AppError {
+        code: "noPool".into(),
+        message: "notepad pool not initialized".into(),
+    })?;
 
     if !pool.is_below_capacity() {
         return Ok(());
@@ -860,14 +857,29 @@ fn sync_autostart_to_config(app: &AppHandle) {
 
     if let Err(error) = apply_autostart(app, config.autostart) {
         // 忽略 Windows 开发模式下常见的 "系统找不到指定的文件" 错误
-        if let Some(io_err) = error.downcast_ref::<std::io::Error>() {
-            if io_err.raw_os_error() == Some(2) {
-                eprintln!("autostart config sync skipped (development mode): {error}");
-                return;
-            }
+        if cfg!(debug_assertions) && is_missing_windows_path_error(error.as_ref()) {
+            eprintln!("autostart config sync skipped (development mode): {error}");
+            return;
         }
         eprintln!("failed to sync autostart config: {error}");
     }
+}
+
+fn is_missing_windows_path_error(error: &(dyn Error + 'static)) -> bool {
+    let mut current = Some(error);
+
+    while let Some(candidate) = current {
+        if candidate
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|io_error| io_error.raw_os_error() == Some(2))
+            || candidate.to_string().contains("(os error 2)")
+        {
+            return true;
+        }
+        current = candidate.source();
+    }
+
+    false
 }
 
 #[cfg(not(desktop))]
@@ -912,6 +924,47 @@ fn apply_autostart(_app: &AppHandle, _enabled: bool) -> Result<(), Box<dyn Error
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Debug)]
+    struct WrappedMissingPathError(std::io::Error);
+
+    impl std::fmt::Display for WrappedMissingPathError {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(formatter, "wrapped autostart error: {}", self.0)
+        }
+    }
+
+    impl Error for WrappedMissingPathError {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            Some(&self.0)
+        }
+    }
+
+    #[derive(Debug)]
+    struct DisplayOnlyMissingPathError;
+
+    impl std::fmt::Display for DisplayOnlyMissingPathError {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                formatter,
+                "the system cannot find the path specified. (os error 2)"
+            )
+        }
+    }
+
+    impl Error for DisplayOnlyMissingPathError {}
+
+    #[test]
+    fn recognizes_missing_windows_path_errors_through_wrappers() {
+        let error = WrappedMissingPathError(std::io::Error::from_raw_os_error(2));
+
+        assert!(is_missing_windows_path_error(&error));
+    }
+
+    #[test]
+    fn recognizes_plugin_errors_that_only_expose_windows_os_error_text() {
+        assert!(is_missing_windows_path_error(&DisplayOnlyMissingPathError));
+    }
 
     #[test]
     fn maps_tray_menu_ids_to_actions() {
@@ -1062,9 +1115,7 @@ mod tests {
         );
         assert_eq!(
             dynamic_window_visual_options("main"),
-            DynamicWindowVisualOptions {
-                transparent: false,
-            }
+            DynamicWindowVisualOptions { transparent: false }
         );
     }
 

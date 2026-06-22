@@ -19,19 +19,35 @@ interface MenuState {
   type: "edit" | "tile";
 }
 
+type EditableTarget = HTMLInputElement | HTMLTextAreaElement;
+
+function isEditableTarget(target: EventTarget | null): target is EditableTarget {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+}
+
+export function replaceEditableSelection(target: EditableTarget, text: string): void {
+  const start = target.selectionStart ?? target.value.length;
+  const end = target.selectionEnd ?? start;
+  target.setRangeText(text, start, end, "end");
+  target.dispatchEvent(new InputEvent("input", {
+    bubbles: true,
+    inputType: "insertFromPaste",
+    data: text,
+  }));
+  target.focus();
+}
+
 export function ContextMenuProvider({ children }: { children: React.ReactNode }) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [menuClosing, setMenuClosing] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const editableTargetRef = useRef<EditableTarget | null>(null);
 
   useEffect(() => {
     function handleContextMenu(event: MouseEvent) {
       const target = event.target as HTMLElement;
-      const isEditable =
-        target.tagName === "TEXTAREA" ||
-        target.tagName === "INPUT" ||
-        target.isContentEditable;
+      const isEditable = isEditableTarget(target) || target.isContentEditable;
       const tileTarget = target.closest<HTMLElement>('[data-context-menu="tile"]');
 
       if (!isEditable && !tileTarget) {
@@ -55,6 +71,7 @@ export function ContextMenuProvider({ children }: { children: React.ReactNode })
       if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 4;
 
       if (tileTarget) {
+        editableTargetRef.current = null;
         setMenuClosing(false);
         setMenu({
           x,
@@ -65,8 +82,11 @@ export function ContextMenuProvider({ children }: { children: React.ReactNode })
         return;
       }
 
+      editableTargetRef.current = isEditableTarget(target) ? target : null;
       setMenuClosing(false);
-      setMenu({ x, y, hasSelection: selection.length > 0, type: "edit" });
+      const hasInputSelection = isEditableTarget(target)
+        && (target.selectionStart ?? 0) !== (target.selectionEnd ?? 0);
+      setMenu({ x, y, hasSelection: hasInputSelection || selection.length > 0, type: "edit" });
     }
 
     function handleClick() {
@@ -100,8 +120,40 @@ export function ContextMenuProvider({ children }: { children: React.ReactNode })
     setMenuClosing(true);
   }, []);
 
-  const runCommand = (command: string) => {
-    document.execCommand(command);
+  const runCommand = async (command: "cut" | "copy" | "paste" | "selectAll") => {
+    const target = editableTargetRef.current;
+    if (!target) {
+      document.execCommand(command);
+      dismissMenu();
+      return;
+    }
+
+    if (command === "selectAll") {
+      target.focus();
+      target.select();
+      dismissMenu();
+      return;
+    }
+
+    const start = target.selectionStart ?? 0;
+    const end = target.selectionEnd ?? start;
+    if (command === "copy" || command === "cut") {
+      const selected = target.value.slice(start, end);
+      if (selected) {
+        await navigator.clipboard?.writeText(selected);
+        if (command === "cut") replaceEditableSelection(target, "");
+      }
+      dismissMenu();
+      return;
+    }
+
+    try {
+      const text = await navigator.clipboard.readText();
+      replaceEditableSelection(target, text);
+    } catch {
+      target.focus();
+      document.execCommand("paste");
+    }
     dismissMenu();
   };
 
@@ -124,26 +176,26 @@ export function ContextMenuProvider({ children }: { children: React.ReactNode })
           {
             label: "剪切",
             shortcut: "Ctrl+X",
-            action: () => runCommand("cut"),
+            action: () => void runCommand("cut"),
             disabled: !menu.hasSelection,
           },
           {
             label: "复制",
             shortcut: "Ctrl+C",
-            action: () => runCommand("copy"),
+            action: () => void runCommand("copy"),
             disabled: !menu.hasSelection,
           },
           {
             label: "粘贴",
             shortcut: "Ctrl+V",
-            action: () => runCommand("paste"),
+            action: () => void runCommand("paste"),
             disabled: false,
           },
           { separator: true as const },
           {
             label: "全选",
             shortcut: "Ctrl+A",
-            action: () => runCommand("selectAll"),
+            action: () => void runCommand("selectAll"),
             disabled: false,
           },
           { separator: true as const },
