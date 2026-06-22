@@ -1,6 +1,6 @@
 [package]
 name = "constellation"
-version = "1.0.0"
+version = "1.0.1"
 description = "A local-first fragmented knowledge workspace and AI knowledge database"
 authors = ["Maplar"]
 edition = "2021"
