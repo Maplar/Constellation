@@ -14,8 +14,8 @@
   --color-paper-deep: #e8e1d3;
   --color-ink: #1a1a18;
   --color-ink-soft: #3d3d38;
-  --color-ink-faint: #8a8a80;
-  --color-ink-ghost: #b8b8ae;
+  --color-ink-faint: #696961;
+  --color-ink-ghost: #77776f;
   --color-bamboo: #2d5a3d;
   --color-bamboo-light: #3a7a52;
   --color-bamboo-mist: #e8f0eb;
@@ -35,8 +35,8 @@
   --text-primary: var(--color-ink);
   --text-secondary: var(--color-ink-faint);
   --text-muted: var(--color-ink-ghost);
-  --border: var(--color-paper-deep);
-  --border-light: var(--color-paper-warm);
+  --border: #d8d0c1;
+  --border-light: #e2dbcf;
   --accent: var(--color-bamboo);
   --accent-hover: var(--color-bamboo-light);
   --accent-light: var(--color-bamboo-mist);
@@ -51,6 +51,16 @@
   --font-display: "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
   --font-body: "Noto Sans SC", "Source Han Sans SC", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* ── Canvas/可视化层专用变量 ── */
+  --canvas-bg: var(--color-paper);
+  --canvas-edge: rgba(73, 73, 68, 0.42);
+  --canvas-edge-highlight: rgba(100, 100, 100, 0.8);
+  --canvas-node-stroke: rgba(255, 255, 255, 0.5);
+  --canvas-node-stroke-hover: rgba(255, 255, 255, 0.8);
+  --canvas-node-stroke-selected: #ffffff;
+  --canvas-label: rgba(0, 0, 0, 0.8);
+  --canvas-overlay: rgba(0, 0, 0, 0.4);
 }
 
 :root[data-theme="dark"] {
@@ -59,8 +69,8 @@
   --color-paper-deep: #3c3935;
   --color-ink: #e5e1da;
   --color-ink-soft: #b5b1a8;
-  --color-ink-faint: #928f87;
-  --color-ink-ghost: #706d67;
+  --color-ink-faint: #b8b4ab;
+  --color-ink-ghost: #99958e;
   --color-bamboo: #4faa70;
   --color-bamboo-light: #5fc085;
   --color-bamboo-mist: #1c2e22;
@@ -71,6 +81,18 @@
   --color-shadow-deep: rgba(0, 0, 0, 0.5);
   --color-danger-bg: rgba(220, 38, 38, 0.15);
   --danger: #e74c3c;
+
+  /* ── Canvas/可视化层暗色覆盖 ── */
+  --canvas-bg: var(--color-paper);
+  --border: #4a4641;
+  --border-light: #3f3b37;
+  --canvas-edge: rgba(210, 207, 200, 0.34);
+  --canvas-edge-highlight: rgba(180, 180, 180, 0.7);
+  --canvas-node-stroke: rgba(0, 0, 0, 0.3);
+  --canvas-node-stroke-hover: rgba(255, 255, 255, 0.6);
+  --canvas-node-stroke-selected: rgba(255, 255, 255, 0.9);
+  --canvas-label: rgba(229, 225, 218, 0.9);
+  --canvas-overlay: rgba(0, 0, 0, 0.6);
 }
 
 /* Theme transition — applied briefly during theme switch for a uniform crossfade */
@@ -111,6 +133,14 @@ textarea, input {
 }
 textarea::placeholder, input::placeholder {
   color: var(--color-ink-ghost);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, white);
+  outline-offset: 2px;
 }
 
 /* Noise texture overlay for paper feel */
@@ -250,4 +280,118 @@ textarea::placeholder, input::placeholder {
 }
 .animate-status-fade {
   animation: status-fade 0.25s ease-out forwards;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   v3.5 "形神分离" — Dashboard & Glass Morphism 扩展
+   基于 floral-notepaper 风格，融合 FlClash 卡片仪表盘概念
+   @copyright 修改部分版权：Copyright (c) 2026 Maplar
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 仪表盘专用背景变量 ── */
+:root {
+  --bg-dashboard: #f6f3ec;
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(86, 78, 65, 0.18);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --glass-blur: 10px;
+  --glass-radius: 16px;
+}
+
+:root[data-theme="dark"] {
+  --bg-dashboard: #191919;
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* ── 毛玻璃卡片工具类 ── */
+.glass-card {
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-dark {
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  background: rgba(25, 25, 25, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--glass-radius);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.glass-light {
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--glass-radius);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* ── 拖拽手柄 ── */
+.drag-handle {
+  cursor: grab;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+.drag-handle:hover {
+  opacity: 0.8;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* ── 拖拽中的卡片 ── */
+.dragging-card {
+  opacity: 0.5;
+  transform: scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* ── 拖拽悬停目标 ── */
+.drag-over-card {
+  border: 2px dashed var(--accent, #2d5a3d);
+  background: var(--accent-light, #e8f0eb);
+}
+
+/* ── 模态遮罩 ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 呼吸灯动画（图谱节点用） ── */
+@keyframes breathe {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+/* ── 流动光效（图谱连线用） ── */
+@keyframes flow-dash {
+  to { stroke-dashoffset: -20; }
+}
+.animate-flow-dash {
+  animation: flow-dash 1s linear infinite;
+}
+
+/* ── 仪表盘网格 ── */
+.dashboard-grid {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
 }

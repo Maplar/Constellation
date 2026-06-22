@@ -27,7 +27,9 @@ describe("NotePad surface modes", () => {
     expect(markup).toContain('data-resize-direction="NorthEast"');
     expect(markup).toContain('data-resize-direction="SouthWest"');
     expect(markup).toContain('data-resize-direction="SouthEast"');
-    expect(markup).toContain("w-4 h-4");
+    expect(markup).toContain("h-[5px]");
+    expect(markup).toContain("w-2.5 h-2.5");
+    expect(markup).toContain("cursor-grab active:cursor-grabbing");
     // Separate title input
     expect(markup).toContain('<input');
     expect(markup).toContain('placeholder="标题');
@@ -65,10 +67,10 @@ describe("NotePad surface modes", () => {
     expect(markup).toContain('data-resize-direction="NorthEast"');
     expect(markup).toContain('data-resize-direction="SouthWest"');
     expect(markup).toContain('data-resize-direction="SouthEast"');
-    expect(markup).toContain("w-4 h-4");
-    expect(markup).toContain("cursor-default");
-    expect(markup).not.toContain("cursor-grab");
-    expect(markup).not.toContain("cursor-grabbing");
+    expect(markup).toContain("h-[5px]");
+    expect(markup).toContain("w-2.5 h-2.5");
+    expect(markup).toContain("cursor-grab");
+    expect(markup).toContain("active:cursor-grabbing");
     // Tile mode has no input or textarea
     expect(markup).not.toContain('<input');
     expect(markup).not.toContain('<textarea');

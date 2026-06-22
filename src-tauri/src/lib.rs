@@ -7,59 +7,27 @@
 pub mod desktop;
 pub mod services;
 
-use services::notes::{default_store, AppConfig, AppError, Note, NoteMetadata, SaveNoteRequest};
 use services::ai::AIConfig;
-use services::mindmap;
+use services::backup;
+use services::diagnostics;
+use services::documents;
+use services::folders;
+use services::git_snapshot;
+use services::migration;
+use services::notes::{default_store, AppConfig, AppError};
+use services::references;
+use services::search_engine;
+use services::suggestions;
+use services::sync;
+use services::vector;
+use services::watcher;
+use services::workspace;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
-
 
 #[tauri::command]
 fn app_name() -> &'static str {
     "星座"
-}
-
-#[tauri::command]
-fn notes_list() -> Result<Vec<NoteMetadata>, AppError> {
-    default_store()?.list_notes()
-}
-
-#[tauri::command]
-fn notes_get(id: String) -> Result<Note, AppError> {
-    default_store()?.read_note(&id)
-}
-
-#[tauri::command]
-fn notes_create(app: AppHandle, request: SaveNoteRequest) -> Result<Note, AppError> {
-    let note = default_store()?.create_note(request)?;
-    let _ = app.emit("notes-changed", ());
-    Ok(note)
-}
-
-#[tauri::command]
-fn notes_update(app: AppHandle, id: String, request: SaveNoteRequest) -> Result<Note, AppError> {
-    let note = default_store()?.update_note(&id, request)?;
-    let _ = app.emit("notes-changed", ());
-    Ok(note)
-}
-
-#[tauri::command]
-fn notes_delete(app: AppHandle, id: String) -> Result<(), AppError> {
-    default_store()?.delete_note(&id)?;
-    let _ = app.emit("notes-changed", ());
-    Ok(())
-}
-
-#[tauri::command]
-fn notes_import_markdown(app: AppHandle, path: String, category: Option<String>) -> Result<Note, AppError> {
-    let note = default_store()?.import_markdown_file(&PathBuf::from(path), &category.unwrap_or_default())?;
-    let _ = app.emit("notes-changed", ());
-    Ok(note)
-}
-
-#[tauri::command]
-fn notes_export_markdown(id: String, path: String) -> Result<(), AppError> {
-    default_store()?.export_markdown_file(&id, &PathBuf::from(path))
 }
 
 #[tauri::command]
@@ -82,39 +50,6 @@ fn save_external_file(path: String, content: String) -> Result<(), AppError> {
         code: "io".into(),
         message: e.to_string(),
     })
-}
-
-#[tauri::command]
-fn categories_list() -> Result<Vec<String>, AppError> {
-    default_store()?.list_categories()
-}
-
-#[tauri::command]
-fn categories_create(app: AppHandle, name: String) -> Result<(), AppError> {
-    default_store()?.create_category(&name)?;
-    let _ = app.emit("notes-changed", ());
-    Ok(())
-}
-
-#[tauri::command]
-fn categories_rename(app: AppHandle, old_name: String, new_name: String) -> Result<(), AppError> {
-    default_store()?.rename_category(&old_name, &new_name)?;
-    let _ = app.emit("notes-changed", ());
-    Ok(())
-}
-
-#[tauri::command]
-fn categories_delete(app: AppHandle, name: String) -> Result<(), AppError> {
-    default_store()?.delete_category(&name)?;
-    let _ = app.emit("notes-changed", ());
-    Ok(())
-}
-
-#[tauri::command]
-fn notes_move_category(app: AppHandle, id: String, category: String) -> Result<NoteMetadata, AppError> {
-    let result = default_store()?.move_note_to_category(&id, &category)?;
-    let _ = app.emit("notes-changed", ());
-    Ok(result)
 }
 
 #[tauri::command]
@@ -171,8 +106,8 @@ fn load_ai_config(app: AppHandle) -> Result<AIConfig, AppError> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(watcher::WatcherState::default())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(file_path) = desktop::extract_file_arg(&args) {
@@ -187,20 +122,8 @@ pub fn run() {
         .on_window_event(desktop::handle_window_event)
         .invoke_handler(tauri::generate_handler![
             app_name,
-            notes_list,
-            notes_get,
-            notes_create,
-            notes_update,
-            notes_delete,
-            notes_import_markdown,
-            notes_export_markdown,
-            notes_move_category,
             read_external_file,
             save_external_file,
-            categories_list,
-            categories_create,
-            categories_rename,
-            categories_delete,
             config_get,
             config_save,
             open_notepad_window,
@@ -208,11 +131,79 @@ pub fn run() {
             open_tile_window,
             save_ai_config,
             load_ai_config,
-            mindmap::mindmap_ensure_dir,
-            mindmap::mindmap_read,
-            mindmap::mindmap_write,
-            mindmap::mindmap_read_index,
-            mindmap::mindmap_write_index
+            services::ai::ai_test_connection,
+            services::ai::ai_complete,
+            services::ai::ai_chat_stream,
+            services::ai::ai_cancel,
+            vector::ai_reindex,
+            vector::vector_search,
+            vector::vector_status,
+            suggestions::suggestions_list,
+            suggestions::suggestions_create,
+            suggestions::suggestions_set_status,
+            suggestions::suggestions_delete,
+            suggestions::suggestions_apply,
+            backup::create_backup,
+            backup::load_backup_config,
+            backup::save_backup_config,
+            backup::list_backups,
+            backup::restore_backup,
+            backup::delete_backup,
+            backup::verify_backup_password,
+            backup::get_backup_size,
+            git_snapshot::git_snapshot_enable,
+            git_snapshot::git_snapshot_create,
+            git_snapshot::git_snapshot_compare,
+            git_snapshot::git_snapshot_history,
+            git_snapshot::git_snapshot_restore,
+            diagnostics::workspace_diagnostics,
+            watcher::watcher_start,
+            watcher::watcher_stop,
+            watcher::watcher_status,
+            documents::documents_list,
+            documents::documents_read,
+            documents::documents_create,
+            documents::documents_create_folder,
+            documents::documents_rename_folder,
+            documents::documents_trash_folder,
+            documents::documents_update,
+            documents::documents_move,
+            documents::documents_trash,
+            documents::documents_restore,
+            documents::documents_undo_last,
+            folders::folder_colors_load,
+            folders::folder_colors_save,
+            workspace::workspace_list,
+            workspace::workspace_open,
+            workspace::workspace_browse,
+            workspace::workspace_register,
+            workspace::workspace_switch,
+            workspace::workspace_status,
+            migration::migration_analyze,
+            migration::migration_execute,
+            references::references_graph,
+            references::references_local_graph,
+            references::references_rebuild,
+            references::references_index_document,
+            references::references_for_document,
+            references::backlinks_for_document,
+            references::graph_local,
+            references::graph_global,
+            sync::test_webdav_connection,
+            sync::sync_notes_dir,
+            sync::get_sync_state,
+            sync::load_sync_config,
+            sync::save_sync_config,
+            sync::sync_notes_dir_with_retry,
+            search_engine::search_init,
+            search_engine::search_index_document,
+            search_engine::search_index_batch,
+            search_engine::search_rebuild,
+            search_engine::search_delete_document,
+            search_engine::search_query,
+            search_engine::search_hybrid,
+            search_engine::search_clear,
+            search_engine::search_stats
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

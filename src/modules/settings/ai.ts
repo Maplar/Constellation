@@ -3,23 +3,24 @@
  * 基于 floral-notepaper 二次开发新增
  */
 
-import OpenAI from "openai";
 import { invoke } from "@tauri-apps/api/core";
+import type { AIConfig } from "../shared/types/settings";
 
-export interface AiSettings {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
-}
+export type AiSettings = AIConfig;
 
 const DEFAULTS: AiSettings = {
   apiKey: "",
+  hasApiKey: false,
   baseUrl: "https://api.openai.com/v1",
-  model: "gpt-3.5-turbo",
+  model: "gpt-4o-mini",
+  allowedFolders: [],
+  consentProvider: "",
 };
 
 export async function loadAiSettings(): Promise<AiSettings> {
-  return invoke<AiSettings>("load_ai_config").catch(() => DEFAULTS);
+  return invoke<AiSettings>("load_ai_config")
+    .then((settings) => ({ ...DEFAULTS, ...settings, apiKey: "" }))
+    .catch(() => DEFAULTS);
 }
 
 export async function saveAiSettings(settings: AiSettings): Promise<void> {
@@ -27,25 +28,6 @@ export async function saveAiSettings(settings: AiSettings): Promise<void> {
 }
 
 export async function testAiConnection(settings: AiSettings): Promise<string> {
-  if (!settings.apiKey) {
-    throw new Error("请先填写 API Key");
-  }
-
-  const client = new OpenAI({
-    apiKey: settings.apiKey,
-    baseURL: settings.baseUrl,
-    dangerouslyAllowBrowser: true,
-  });
-
-  const response = await client.chat.completions.create({
-    model: settings.model,
-    messages: [
-      { role: "user", content: "Hi" },
-    ],
-    max_tokens: 10,
-    temperature: 0,
-  });
-
-  const reply = response.choices[0]?.message?.content ?? "";
-  return reply || "连接成功 (无内容返回)";
+  await saveAiSettings(settings);
+  return invoke<string>("ai_test_connection");
 }

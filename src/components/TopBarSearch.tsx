@@ -7,10 +7,8 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
 import { useAppModeStore } from "../modules/shared/stores/useAppModeStore";
 import { useNoteStore } from "../modules/notes/stores/useNoteStore";
-import { useGraphStore } from "../modules/visualization/stores/useGraphStore";
 import { useEditorStore } from "../modules/shared/stores/useEditorStore";
 import { getDisplayTitle } from "../modules/shared/utils/noteUtils";
-import { metadataFromNote } from "../modules/shared/utils/noteUtils";
 
 interface ContextMenuState {
   x: number;
@@ -23,7 +21,6 @@ export function TopBarSearch() {
   const searchQuery = useNoteStore((s) => s.searchQuery);
   const searchResults = useNoteStore((s) => s.searchResults);
   const setNoteSearch = useNoteStore((s) => s.setSearchQuery);
-  const setGraphSearch = useGraphStore((s) => s.setSearchQuery);
 
   const [inputValue, setInputValue] = useState(searchQuery);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -40,20 +37,18 @@ export function TopBarSearch() {
     (value: string) => {
       setInputValue(value);
       setNoteSearch(value);
-      if (mode !== "edit") setGraphSearch(value);
       setDropdownOpen(mode === "edit" && value.trim().length > 0);
       setSelectedIndex(0);
     },
-    [mode, setNoteSearch, setGraphSearch],
+    [mode, setNoteSearch],
   );
 
   const handleClear = useCallback(() => {
     setInputValue("");
     setNoteSearch("");
-    if (mode !== "edit") setGraphSearch("");
     setDropdownOpen(false);
     setContextMenu(null);
-  }, [mode, setNoteSearch, setGraphSearch]);
+  }, [mode, setNoteSearch]);
 
   const handleFocus = useCallback(() => {
     if (mode === "edit" && inputValue.trim()) {
@@ -116,7 +111,7 @@ export function TopBarSearch() {
         e.preventDefault();
         const selected = results[selectedIndex];
         if (selected) {
-          handleInsertReference(getDisplayTitle(metadataFromNote(selected.note)));
+          handleInsertReference(getDisplayTitle(selected.note));
         }
       }
     },
@@ -187,7 +182,7 @@ export function TopBarSearch() {
           onMouseDown={(e) => e.stopPropagation()}
         >
           {displayResults.map((result, index) => {
-            const meta = metadataFromNote(result.note);
+            const meta = result.note;
             const title = getDisplayTitle(meta);
             return (
               <div

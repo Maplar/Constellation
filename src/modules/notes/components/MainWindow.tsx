@@ -9,13 +9,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
-import { exportMarkdownNote, importMarkdownNote } from "../api/export";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { RelationPreview } from "./RelationPreview";
-import { GalaxyPreview } from "./GalaxyPreview";
-import { MindMapEditor } from "./MindMapEditor";
 import {
-  chooseNotesDirectory,
   getConfig,
   normalizeViewMode,
   saveConfig,
@@ -51,6 +47,11 @@ import {
 } from "../../shared/utils/noteUtils";
 import type { CategoryGroup } from "../../shared/utils/noteUtils";
 import { useNoteStore } from "../stores/useNoteStore";
+import {
+  deleteNoteFromIndex,
+  indexNote as indexSearchNote,
+  rebuildRustSearchIndex,
+} from "../services/searchService";
 import { useEditorStore } from "../../shared/stores/useEditorStore";
 import { usePlatform } from "../../shared/platform/usePlatform";
 import { getNotesInCategoryTree } from "../../shared/utils/categoryTree";
@@ -59,14 +60,24 @@ import { highlightText } from "../../shared/utils/highlightUtils";
 import { summarizeNote } from "../services/aiService";
 import { exportToPDF, pdfFileName } from "../services/pdfExportService";
 import { createRoot } from "react-dom/client";
-import { loadAiSettings } from "../../settings/ai";
+import { loadAiSettings, saveAiSettings } from "../../settings/ai";
 import { AiSummaryModal } from "./AiSummaryModal";
 import {
   noteContextMenuItems,
   type NoteContextMenuAction,
 } from "../noteContextMenu";
+import { WorkspaceDirectoryBrowser } from "../../../workspace/components/WorkspaceDirectoryBrowser";
+import { DocumentTabs } from "../../../editor/components/DocumentTabs";
+import {
+  type OpenDocumentTabDetail,
+  useDocumentTabs,
+} from "../../../editor/stores/useDocumentTabs";
+import {
+  startWorkspaceWatcher,
+  switchWorkspace,
+  type WorkspaceSwitchRequestDetail,
+} from "../../../core-client";
 import { openNotepadWindow, openTileWindow } from "../../windows/api";
-import { GraphView } from "./GraphView";
 import { getCategoryColor, setCategoryColors, getCustomCategoryColors } from "../../visualization/utils/colorMap";
 import { loadCategoryColors, saveCategoryColors } from "../../settings/categoryColors";
 import { CategoryColorPicker } from "../../settings/components/CategoryColorPicker";
@@ -143,7 +154,8 @@ function applyFormat(
     case "heading": {
       const prefix = currentLine.match(/^(#{1,5})\s/);
       if (prefix) {
-        const newLevel = prefix[1].length < 5 ? "#".repeat(prefix[1].length + 1) : "#";
+        const currentLevel = prefix[1]?.length ?? 1;
+        const newLevel = currentLevel < 5 ? "#".repeat(currentLevel + 1) : "#";
         const beforeLine = value.slice(0, lineStart);
         const afterPrefix = value.slice(lineStart + prefix[0].length);
         result = beforeLine + newLevel + " " + afterPrefix;
@@ -265,15 +277,12 @@ export function MainWindow({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const searchQuery = useNoteStore((s) => s.searchQuery);
   const searchResults = useNoteStore((s) => s.searchResults);
-  const loadFullNotes = useNoteStore((s) => s.loadFullNotes);
-  const loadStoreNotes = useNoteStore((s) => s.loadNotes);
+  const refreshKnowledgeIndex = useNoteStore((s) => s.refreshKnowledgeIndex);
   const [categorySearchQuery, setCategorySearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>(
     normalizeViewMode(initialConfig?.defaultViewMode ?? "split"),
   );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [showGraph, setShowGraph] = useState(false);
-  const [showMindMapEditor, setShowMindMapEditor] = useState(false);
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -283,6 +292,16 @@ export function MainWindow({
   const [noteMenu, setNoteMenu] = useState<NoteMenuState | null>(null);
   const [noteMenuClosing, setNoteMenuClosing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(initialSettingsOpen);
+  const [workspaceBrowserOpen, setWorkspaceBrowserOpen] = useState(false);
+  const tabs = useDocumentTabs((state) => state.tabs);
+  const activeTabId = useDocumentTabs((state) => state.activeTabId);
+  const setTabsWorkspaceKey = useDocumentTabs((state) => state.setWorkspaceKey);
+  const openTab = useDocumentTabs((state) => state.openTab);
+  const closeTab = useDocumentTabs((state) => state.closeTab);
+  const setActiveTab = useDocumentTabs((state) => state.setActiveTab);
+  const updateTabTitle = useDocumentTabs((state) => state.updateTabTitle);
+  const togglePinnedTab = useDocumentTabs((state) => state.togglePinned);
+  const reorderTab = useDocumentTabs((state) => state.reorderTab);
   const [settingsConfig, setSettingsConfig] = useState<AppConfig | null>(
     initialConfig ?? null,
   );
@@ -309,6 +328,8 @@ export function MainWindow({
   const [categoryMenu, setCategoryMenu] = useState<{ x: number; y: number; category: string } | null>(null);
   const [categoryMenuClosing, setCategoryMenuClosing] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const indexedDirectoryRef = useRef<string | null>(null);
 
   const { isMobile } = usePlatform();
   const previewSubMode = useEditorStore((s) => s.previewSubMode);
@@ -340,7 +361,7 @@ export function MainWindow({
     // Global search (top bar search)
     if (searchQuery.trim()) {
       if (searchResults.length > 0) {
-        return searchResults.map((r) => metadataFromNote(r.note));
+        return searchResults.map((r) => r.note);
       }
       return filterNotes(notes, searchQuery);
     }
@@ -385,14 +406,39 @@ export function MainWindow({
   }, []);
 
   const loadNote = useCallback(
-    async (id: string) => {
+    async (id: string, mode: "new" | "replace" = "new") => {
       setErrorMessage(null);
       const note = await getNote(id);
       applyNote(note);
       replaceNoteMetadata(note);
+      openTab({ id: note.id, title: note.title }, mode);
     },
-    [applyNote, replaceNoteMetadata],
+    [applyNote, openTab, replaceNoteMetadata],
   );
+
+  useEffect(() => {
+    if (savedNotesDir) setTabsWorkspaceKey(savedNotesDir);
+  }, [savedNotesDir, setTabsWorkspaceKey]);
+
+  useEffect(() => {
+    if (!savedNotesDir) return;
+    void startWorkspaceWatcher(savedNotesDir).catch((error) => {
+      setErrorMessage(getErrorMessage(error));
+    });
+  }, [savedNotesDir]);
+
+  useEffect(() => {
+    const handleOpenTab = (event: Event) => {
+      const detail = (event as CustomEvent<OpenDocumentTabDetail>).detail;
+      if (detail?.documentId) void loadNote(detail.documentId, detail.mode ?? "new");
+    };
+    window.addEventListener("open-document-tab", handleOpenTab);
+    return () => window.removeEventListener("open-document-tab", handleOpenTab);
+  }, [loadNote]);
+
+  useEffect(() => {
+    if (selectedId) updateTabTitle(selectedId, title);
+  }, [selectedId, title, updateTabTitle]);
 
   const refreshNotes = useCallback(async () => {
     const [loadedNotes, loadedCategories] = await Promise.all([
@@ -401,11 +447,17 @@ export function MainWindow({
     ]);
     setNotes(loadedNotes);
     setCategories(loadedCategories);
-    void loadStoreNotes().then(() => {
-      void loadFullNotes();
-    });
+    void refreshKnowledgeIndex();
     return loadedNotes;
-  }, [loadStoreNotes, loadFullNotes]);
+  }, [refreshKnowledgeIndex]);
+
+  useEffect(() => {
+    if (!savedNotesDir || indexedDirectoryRef.current === savedNotesDir) return;
+    indexedDirectoryRef.current = savedNotesDir;
+    void rebuildRustSearchIndex(savedNotesDir).catch(() => {
+      indexedDirectoryRef.current = null;
+    });
+  }, [savedNotesDir]);
 
   const clearCurrentNote = useCallback(() => {
     setSelectedId(null);
@@ -424,21 +476,42 @@ export function MainWindow({
     setAiResult(null);
     try {
       const config = await loadAiSettings();
-      if (!config.apiKey) {
+      if (!config.apiKey && !config.hasApiKey && !config.baseUrl.includes("localhost")) {
         throw new Error("请先在设置中配置 AI API Key");
       }
-      const summary = await summarizeNote(content, {
-        apiKey: config.apiKey,
-        baseURL: config.baseUrl,
-        model: config.model,
-      });
+      const noteFolder = selectedNote?.category ?? "";
+      if (
+        config.allowedFolders.length > 0 &&
+        !config.allowedFolders.some(
+          (folder) => noteFolder === folder || noteFolder.startsWith(`${folder}/`),
+        )
+      ) {
+        throw new Error(`当前文件夹“${noteFolder || "根目录"}”不在 AI 允许读取范围内`);
+      }
+      const provider = config.baseUrl.trim().replace(/\/+$/, "").toLowerCase();
+      const isLocal = /\/\/(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(provider);
+      if (!isLocal && config.consentProvider !== provider) {
+        const confirmed = window.confirm(
+          [
+            "即将首次向云端 AI 服务发送笔记正文。",
+            `服务商：${config.baseUrl}`,
+            `数据范围：当前笔记（${noteFolder || "根目录"}）`,
+            "用途：生成摘要；正文不会写入工作区配置。",
+            "是否允许？",
+          ].join("\n"),
+        );
+        if (!confirmed) return;
+        config.consentProvider = provider;
+        await saveAiSettings(config);
+      }
+      const summary = await summarizeNote(content);
       setAiResult(summary);
     } catch (error) {
       setAiError(String(error));
     } finally {
       setAiLoading(false);
     }
-  }, [content]);
+  }, [content, selectedNote?.category]);
 
   const handleExportPdf = useCallback(async () => {
     if (!content.trim()) {
@@ -528,10 +601,17 @@ export function MainWindow({
         setNotes(loadedNotes);
         setCategories(loadedCategories);
         setCategoryColors(loadedColors);
-        void loadFullNotes();
-        if (loadedNotes[0]) {
-          const note = await getNote(loadedNotes[0].id);
-          if (!cancelled) applyNote(note);
+        void refreshKnowledgeIndex();
+        setTabsWorkspaceKey(loadedConfig.notesDir);
+        const restoredTabId = useDocumentTabs.getState().activeTabId;
+        const initialNote =
+          loadedNotes.find((note) => note.id === restoredTabId) ?? loadedNotes[0];
+        if (initialNote) {
+          const note = await getNote(initialNote.id);
+          if (!cancelled) {
+            applyNote(note);
+            openTab({ id: note.id, title: note.title });
+          }
         } else {
           clearCurrentNote();
         }
@@ -546,7 +626,7 @@ export function MainWindow({
     return () => {
       cancelled = true;
     };
-  }, [applyNote, clearCurrentNote]);
+  }, [applyNote, clearCurrentNote, openTab, setTabsWorkspaceKey]);
 
   useEffect(() => {
     const unlisten = listen("notes-changed", () => {
@@ -566,6 +646,15 @@ export function MainWindow({
   }, [refreshNotes, selectedId, loadNote, clearCurrentNote]);
 
   useEffect(() => {
+    const unlisten = listen("workspace-files-changed", () => {
+      void refreshNotes();
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, [refreshNotes]);
+
+  useEffect(() => {
     const unlisten = listen<string>("open-external-file", (event) => {
       void loadExternalFile(event.payload);
     });
@@ -573,6 +662,15 @@ export function MainWindow({
       void unlisten.then((fn) => fn());
     };
   }, [loadExternalFile]);
+
+  useEffect(() => {
+    const unlisten = listen<string>("tile-window-closed", (_event) => {
+      void refreshNotes();
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, [refreshNotes]);
 
   useEffect(() => {
     function closeNoteMenu() {
@@ -632,9 +730,9 @@ export function MainWindow({
       setCategoryColors(newColors);
       await saveCategoryColors(newColors);
       setColorPickerCategory(null);
-      void loadFullNotes();
+      void refreshKnowledgeIndex();
     },
-    [colorPickerCategory, loadFullNotes],
+    [colorPickerCategory, refreshKnowledgeIndex],
   );
 
   const saveCurrentNote = useCallback(async () => {
@@ -658,6 +756,14 @@ export function MainWindow({
     try {
       const category = selectedNote?.category ?? "";
       const note = await updateNote(selectedId, { title, content, category });
+      if (savedNotesDir) {
+        void indexSearchNote(savedNotesDir, {
+          noteId: note.id,
+          title: note.title,
+          content: note.content,
+          category: note.category,
+        });
+      }
       replaceNoteMetadata(note);
       setSaveState("saved");
       setErrorMessage(null);
@@ -668,6 +774,48 @@ export function MainWindow({
       return null;
     }
   }, [content, isExternal, replaceNoteMetadata, selectedExternalFile, selectedId, selectedNote, title]);
+
+  const saveOnUnmountRef = useRef({
+    dirty: false,
+    save: saveCurrentNote,
+  });
+  useEffect(() => {
+    saveOnUnmountRef.current = {
+      dirty: saveState === "dirty",
+      save: saveCurrentNote,
+    };
+  }, [saveCurrentNote, saveState]);
+  useEffect(
+    () => () => {
+      const pending = saveOnUnmountRef.current;
+      if (pending.dirty) void pending.save();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const handleWorkspaceSwitch = (
+      event: Event,
+    ) => {
+      const detail = (event as CustomEvent<WorkspaceSwitchRequestDetail>).detail;
+      if (!detail?.id) return;
+      detail.handled = true;
+      void (async () => {
+        try {
+          if (saveState === "dirty") {
+            const saved = await saveCurrentNote();
+            if (!saved) throw new Error("当前文档保存失败，已取消工作区切换");
+          }
+          detail.resolve(await switchWorkspace(detail.id));
+        } catch (error) {
+          detail.reject(error);
+        }
+      })();
+    };
+    window.addEventListener("request-workspace-switch", handleWorkspaceSwitch);
+    return () =>
+      window.removeEventListener("request-workspace-switch", handleWorkspaceSwitch);
+  }, [saveCurrentNote, saveState]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -693,12 +841,32 @@ export function MainWindow({
     return () => window.clearTimeout(timer);
   }, [isExternal, saveCurrentNote, saveState, selectedId, settingsConfig?.noteAutoSave]);
 
-  const handleNewNote = async () => {
+  const handleNewNote = async (categoryOverride?: string) => {
     setErrorMessage(null);
     try {
-      const note = await createNote({ title: "", content: "", category: activeCategory });
+      const category = categoryOverride ?? activeCategory;
+      const note = await createNote({ title: "", content: "", category });
+      if (savedNotesDir) {
+        void indexSearchNote(savedNotesDir, {
+          noteId: note.id,
+          title: note.title,
+          content: note.content,
+          category: note.category,
+        });
+      }
       replaceNoteMetadata(note);
+      setActiveCategory(category);
+      setCollapsedCategories((current) => {
+        const next = new Set(current);
+        next.delete(category);
+        return next;
+      });
       applyNote(note);
+      openTab({ id: note.id, title: note.title });
+      requestAnimationFrame(() => {
+        titleInputRef.current?.focus();
+        titleInputRef.current?.select();
+      });
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     }
@@ -718,19 +886,6 @@ export function MainWindow({
       setSettingsConfig(config);
       setSavedNotesDir(config.notesDir);
       setViewMode(normalizeViewMode(config.defaultViewMode));
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error));
-    }
-  };
-
-  const handleChooseNotesDir = async () => {
-    if (!settingsConfig) return;
-
-    setErrorMessage(null);
-    try {
-      const notesDir = await chooseNotesDirectory();
-      if (!notesDir) return;
-      handleSettingsChange({ ...settingsConfig, notesDir });
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     }
@@ -784,24 +939,6 @@ export function MainWindow({
   const handleCloseSettings = useCallback(() => {
     setSettingsOpen(false);
   }, []);
-
-  const handleImportNote = async () => {
-    setErrorMessage(null);
-    try {
-      if (selectedId && saveState === "dirty") {
-        const saved = await saveCurrentNote();
-        if (!saved) return;
-      }
-
-      const note = await importMarkdownNote(activeCategory);
-      if (!note) return;
-
-      replaceNoteMetadata(note);
-      applyNote(note);
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error));
-    }
-  };
 
   const handleSelectNote = async (id: string) => {
     if (id === selectedId) return;
@@ -869,9 +1006,17 @@ export function MainWindow({
     setErrorMessage(null);
     try {
       await deleteNote(noteId);
+      if (savedNotesDir) {
+        void deleteNoteFromIndex(savedNotesDir, noteId);
+      }
       const remaining = await refreshNotes();
+      const nextTabId = closeTab(noteId);
       if (noteId === selectedId && remaining[0]) {
-        await loadNote(remaining[0].id);
+        const nextNoteId =
+          nextTabId && remaining.some((note) => note.id === nextTabId)
+            ? nextTabId
+            : remaining[0].id;
+        await loadNote(nextNoteId);
       } else if (noteId === selectedId) {
         clearCurrentNote();
       }
@@ -901,23 +1046,6 @@ export function MainWindow({
     });
   };
 
-  const handleExportNote = async (note: NoteMetadata) => {
-    setErrorMessage(null);
-    try {
-      if (note.id === selectedId && saveState === "dirty") {
-        const saved = await saveCurrentNote();
-        if (!saved) return;
-      }
-
-      await exportMarkdownNote({
-        id: note.id,
-        title: note.id === selectedId ? title : note.title,
-      });
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error));
-    }
-  };
-
   const handleNoteMenuAction = (action: NoteContextMenuAction) => {
     const note = noteMenuTarget;
     if (!note) return;
@@ -926,12 +1054,6 @@ export function MainWindow({
       const title = note.title || "无标题笔记";
       setNoteMenuClosing(true);
       useEditorStore.getState().insertAtCursor?.(`[[${title}]]`);
-      return;
-    }
-
-    if (action === "export") {
-      setNoteMenuClosing(true);
-      void handleExportNote(note);
       return;
     }
 
@@ -1170,25 +1292,6 @@ export function MainWindow({
             {!isMobile && (
               <>
                 <button
-                  onClick={() => setShowGraph(true)}
-                  className="w-10 h-11 flex items-center justify-center text-ink-ghost hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer"
-                  title="图谱仪表盘"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="6" cy="6" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="18" r="3" />
-                    <path d="M8.5 7.5L15.5 16.5M15.5 7.5L8.5 16.5" />
-                  </svg>
-                </button>
-                <button
                   onClick={() => void handleOpenNotepad()}
                   className="w-10 h-11 flex items-center justify-center text-ink-ghost hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer"
                   title="快捷便签"
@@ -1294,7 +1397,7 @@ export function MainWindow({
 
             <div className="px-3 pb-2 shrink-0 space-y-1">
               <button
-                onClick={handleNewNote}
+                onClick={() => void handleNewNote()}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-body text-bamboo hover:bg-bamboo-mist/60 transition-all cursor-pointer group"
               >
                 <svg
@@ -1332,32 +1435,12 @@ export function MainWindow({
                 </svg>
                 <span>新建文件夹</span>
               </button>
-              <button
-                onClick={() => void handleImportNote()}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-body text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/50 transition-all cursor-pointer group"
-              >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 3v12" />
-                  <path d="m7 8 5-5 5 5" />
-                  <path d="M5 21h14" />
-                </svg>
-                <span>导入 Markdown</span>
-              </button>
             </div>
 
             <div className="flex items-center justify-between px-5 pb-1.5 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-ink-ghost font-mono tracking-wider uppercase">
-                  {filteredNotes.length} 篇笔记{externalFiles.length > 0 ? ` · ${externalFiles.length} 个外部文件` : ""}
+                  {filteredNotes.length} 篇笔记
                 </span>
                 {activeCategory && (
                   <button
@@ -1403,7 +1486,7 @@ export function MainWindow({
 
             <div className="flex-1 overflow-y-auto px-2 pb-2">
               <div className="space-y-0.5">
-                {externalFiles.length > 0 && (
+                {false && externalFiles.length > 0 && (
                   <>
                     <div className="px-3 py-1.5 text-[10px] text-ink-ghost/50 font-mono tracking-wider uppercase">
                       外部文件
@@ -1537,6 +1620,10 @@ export function MainWindow({
                                 ? "bg-bamboo/8 border border-bamboo/15"
                                 : "bg-bamboo/5 border border-bamboo/10 rounded-b-none"
                         }`}
+                        onClick={() => {
+                          setActiveCategory(group.category);
+                          setCategorySearchQuery("");
+                        }}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1612,11 +1699,6 @@ export function MainWindow({
                           />
                         ) : (
                           <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveCategory((prev) => prev === group.category ? "" : group.category);
-                              setCategorySearchQuery("");
-                            }}
                             className={`text-[11px] font-medium truncate cursor-pointer ${
                               isActiveForFilter ? "text-bamboo" : "text-bamboo/70"
                             }`}
@@ -1627,6 +1709,21 @@ export function MainWindow({
                         <span className="text-[9px] text-bamboo/40 font-mono ml-auto shrink-0">
                           {group.notes.length}
                         </span>
+                        {!renamingCategory && (
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleNewNote(group.category);
+                            }}
+                            className="opacity-0 group-hover/cat:opacity-100 text-bamboo/70 hover:text-bamboo transition-all p-0.5 shrink-0"
+                            title={`在「${group.category}」中新建笔记`}
+                            aria-label={`在「${group.category}」中新建笔记`}
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                              <path d="M12 5v14M5 12h14" />
+                            </svg>
+                          </button>
+                        )}
                         {!renamingCategory && (
                           <button
                             onClick={(e) => {
@@ -1648,9 +1745,12 @@ export function MainWindow({
                       {!isCollapsed && (
                         <div className="bg-bamboo/[0.03] border border-t-0 border-bamboo/10 rounded-b-lg pb-1 pt-1">
                           {group.notes.length === 0 ? (
-                            <div className="px-3 py-3 text-center text-[11px] text-ink-ghost/50">
-                              空文件夹
-                            </div>
+                            <button
+                              onClick={() => void handleNewNote(group.category)}
+                              className="w-full px-3 py-3 text-center text-[11px] text-ink-faint hover:text-bamboo hover:bg-bamboo-mist/40 transition-colors cursor-pointer"
+                            >
+                              空文件夹 · 点击新建笔记
+                            </button>
                           ) : group.notes.map((note) => {
                             const isSelected = note.id === selectedId;
                             const isHovered = note.id === hoveredId;
@@ -1716,7 +1816,7 @@ export function MainWindow({
                   );
                 })}
 
-                {!isLoading && filteredNotes.length === 0 && externalFiles.length === 0 && (
+                {!isLoading && filteredNotes.length === 0 && (
                   <div className="px-3 py-8 text-center text-[12px] text-ink-ghost leading-relaxed">
                     {searchQuery ? "没有匹配的笔记" : "还没有笔记"}
                   </div>
@@ -1726,9 +1826,28 @@ export function MainWindow({
           </div>
 
           <div className="flex-1 flex flex-col min-w-0">
-            {showGraph ? (
-              <GraphView onBack={() => setShowGraph(false)} />
-            ) : (<>
+            <>
+            <DocumentTabs
+              tabs={tabs}
+              activeTabId={activeTabId}
+              dirtyTabId={saveState === "dirty" ? selectedId : null}
+              onActivate={(id) => {
+                if (id === selectedId) return;
+                if (selectedId && saveState === "dirty") void saveCurrentNote();
+                setActiveTab(id);
+                void loadNote(id);
+              }}
+              onClose={(id) => {
+                if (id === selectedId && saveState === "dirty") void saveCurrentNote();
+                const nextId = closeTab(id);
+                if (id === selectedId) {
+                  if (nextId) void loadNote(nextId);
+                  else clearCurrentNote();
+                }
+              }}
+              onTogglePinned={togglePinnedTab}
+              onReorder={reorderTab}
+            />
             <div className="flex items-center justify-between px-4 h-10 border-b border-paper-deep/20 shrink-0 bg-paper/20">
               <div className="flex items-center gap-1">
                 <button
@@ -1875,6 +1994,7 @@ export function MainWindow({
 
             <div key={noteTransitionKey} className="animate-note-enter px-6 pt-4 pb-2 shrink-0 border-b border-paper-deep/15">
               <input
+                ref={titleInputRef}
                 type="text"
                 value={title}
                 onChange={(event) => {
@@ -2024,7 +2144,6 @@ export function MainWindow({
                           options={[
                             { value: "markdown" as const, label: "Markdown" },
                             { value: "relation" as const, label: "关系" },
-                            { value: "galaxy" as const, label: "星环" },
                           ]}
                           value={previewSubMode}
                           onChange={setPreviewSubMode}
@@ -2041,21 +2160,6 @@ export function MainWindow({
                         )}
                         {previewSubMode === "relation" && selectedId && (
                           <RelationPreview noteId={selectedId} />
-                        )}
-                        {previewSubMode === "galaxy" && selectedId && (
-                          <div className="flex flex-col h-full">
-                            <div className="flex-1 min-h-0">
-                              <GalaxyPreview noteId={selectedId} notesDir={savedNotesDir || undefined} />
-                            </div>
-                            <div className="px-4 py-2 border-t border-paper-deep/10 shrink-0">
-                              <button
-                                onClick={() => setShowMindMapEditor(true)}
-                                className="w-full px-3 py-1.5 text-xs bg-bamboo/10 text-bamboo hover:bg-bamboo/20 rounded-md transition-colors"
-                              >
-                                编辑思维导图
-                              </button>
-                            </div>
-                          </div>
                         )}
                       </div>
                     </div>
@@ -2084,7 +2188,7 @@ export function MainWindow({
                 </span>
               </div>
             </div>
-            </>)}
+            </>
           </div>
           {settingsConfig && (
             <div className={`relative shrink-0 transition-all duration-[600ms] overflow-hidden h-full ${
@@ -2094,7 +2198,7 @@ export function MainWindow({
                 <SettingsPanel
                   config={settingsConfig}
                   onChange={handleSettingsChange}
-                  onChooseNotesDir={() => void handleChooseNotesDir()}
+                  onChooseNotesDir={() => setWorkspaceBrowserOpen(true)}
                   onClose={handleCloseSettings}
                 />
               </div>
@@ -2109,32 +2213,16 @@ export function MainWindow({
         error={aiError}
         onClose={() => { setAiResult(null); setAiError(null); }}
       />
+      <WorkspaceDirectoryBrowser
+        open={workspaceBrowserOpen}
+        initialPath={settingsConfig?.notesDir}
+        onCancel={() => setWorkspaceBrowserOpen(false)}
+        onSelect={(notesDir) => {
+          if (settingsConfig) handleSettingsChange({ ...settingsConfig, notesDir });
+          setWorkspaceBrowserOpen(false);
+        }}
+      />
 
-      {/* 思维导图编辑器模态框 */}
-      {showMindMapEditor && selectedId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-paper rounded-xl shadow-2xl w-[90vw] h-[85vh] max-w-5xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-paper-deep/20">
-              <h2 className="text-sm font-semibold text-ink">思维导图编辑器</h2>
-              <button
-                onClick={() => setShowMindMapEditor(false)}
-                className="p-1 text-ink-ghost hover:text-ink rounded transition-colors"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 min-h-0">
-              <MindMapEditor
-                noteId={selectedId}
-                notesDir={savedNotesDir || undefined}
-                onSave={() => setShowMindMapEditor(false)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
       {noteMenu && noteMenuTarget && (
         <div
           className={`fixed z-[9999] min-w-[168px] py-1.5 bg-cloud/95 backdrop-blur-sm border border-paper-deep/50 rounded-lg overflow-hidden select-none ${noteMenuClosing ? "animate-menu-exit" : "animate-menu-enter"}`}

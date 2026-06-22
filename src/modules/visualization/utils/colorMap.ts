@@ -43,7 +43,7 @@ function hashString(str: string): number {
 }
 
 export function getCategoryColor(category: string): string {
-  if (!category) return CATEGORY_COLORS[0];
+  if (!category) return CATEGORY_COLORS[0]!;
 
   const custom = customCategoryColors[category];
   if (custom) return custom;
@@ -57,7 +57,7 @@ export function getCategoryColor(category: string): string {
   const palette = isDark ? CATEGORY_COLORS_DARK : CATEGORY_COLORS;
 
   const index = hashString(category) % palette.length;
-  const color = palette[index];
+  const color = palette[index] ?? CATEGORY_COLORS[0]!;
   colorCache.set(category, color);
   return color;
 }
@@ -111,7 +111,7 @@ export function getCustomCategoryColors(): Record<string, string> {
 function hexToRgb(hex: string): [number, number, number] {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) return [0, 0, 0];
-  return [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)];
+  return [parseInt(result[1]!, 16), parseInt(result[2]!, 16), parseInt(result[3]!, 16)];
 }
 
 /**
@@ -123,7 +123,7 @@ export function getRelativeLuminance(hex: string): number {
     c = c / 255;
     return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
   });
-  return 0.2126 * rv + 0.7152 * gv + 0.0722 * bv;
+  return 0.2126 * (rv ?? 0) + 0.7152 * (gv ?? 0) + 0.0722 * (bv ?? 0);
 }
 
 /**

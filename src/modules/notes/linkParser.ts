@@ -12,7 +12,7 @@ export function parseWikiLinks(content: string, sourceNoteId: string): WikiLink[
   const matches = content.matchAll(WIKI_LINK_RE);
 
   for (const match of matches) {
-    const raw = match[1].trim();
+    const raw = match[1]?.trim() ?? "";
     if (!raw) continue;
 
     const aliasIdx = raw.lastIndexOf("|");
@@ -128,13 +128,14 @@ export function buildLinkGraph(notes: Note[]): LinkGraph {
 
   for (const [key, value] of edgeValueMap) {
     const [source, target] = key.split("-");
+    if (!source || !target) continue;
     const edge = edgeMap.get(`${source}->${target}`);
     graphEdges.push({
       source,
       target,
       label: edge?.label ?? null,
       value,
-      edgeType: 'solid', // 默认实线，第一版暂不支持跨文件虚线
+      edgeType: 'wiki',
     });
   }
 

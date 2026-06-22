@@ -47,8 +47,8 @@ describe("parseWikiLinks", () => {
   it("parses multiple wiki links in the same content", () => {
     const links = parseWikiLinks("从 [[笔记A]] 到 [[笔记B|别名]]", "src-1");
     expect(links).toHaveLength(2);
-    expect(links[0].targetTitle).toBe("笔记A");
-    expect(links[1].targetTitle).toBe("笔记B");
+    expect(links[0]!.targetTitle).toBe("笔记A");
+    expect(links[1]!.targetTitle).toBe("笔记B");
   });
 
   it("returns empty array when no wiki links are present", () => {
@@ -64,14 +64,14 @@ describe("parseWikiLinks", () => {
   it("handles links with extra whitespace", () => {
     const links = parseWikiLinks("[[  标题有空格  ]]", "src-1");
     expect(links).toHaveLength(1);
-    expect(links[0].targetTitle).toBe("标题有空格");
+    expect(links[0]!.targetTitle).toBe("标题有空格");
   });
 
   it("handles alias with empty alias part", () => {
     const links = parseWikiLinks("[[标题|]]", "src-1");
     expect(links).toHaveLength(1);
-    expect(links[0].targetTitle).toBe("标题");
-    expect(links[0].alias).toBeNull();
+    expect(links[0]!.targetTitle).toBe("标题");
+    expect(links[0]!.alias).toBeNull();
   });
 });
 
@@ -83,8 +83,8 @@ describe("parseAllLinks", () => {
     ];
     const links = parseAllLinks(notes);
     expect(links).toHaveLength(2);
-    expect(links[0].sourceNoteId).toBe("n1");
-    expect(links[1].sourceNoteId).toBe("n2");
+    expect(links[0]!.sourceNoteId).toBe("n1");
+    expect(links[1]!.sourceNoteId).toBe("n2");
   });
 });
 
